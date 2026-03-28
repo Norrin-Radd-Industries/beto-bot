@@ -1,16 +1,22 @@
 package beto.be.mcpbetobot.process.github;
 
 import beto.be.mcpbetobot.messages.request.GithubJsonRcpMessage;
+import beto.be.mcpbetobot.messages.request.buildingblocks.CallToolParams;
 import beto.be.mcpbetobot.messages.request.buildingblocks.Capabilities;
 import beto.be.mcpbetobot.messages.request.buildingblocks.ClientInfo;
 import beto.be.mcpbetobot.messages.request.buildingblocks.InitializeParams;
 import beto.be.mcpbetobot.messages.response.GithubJsonRcpResponse;
+import beto.be.mcpbetobot.messages.response.toolresponse.GithubIssue;
+import beto.be.mcpbetobot.messages.response.toolresponse.ToolCallResponse;
 import jakarta.annotation.PostConstruct;
+import org.apache.catalina.startup.Tool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.*;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,6 +65,20 @@ public class McpClient {
         logger.info(">>>Asking for all available tools<<<");
         return sendRequest(
                 "tools/list", new Object());
+    }
+
+    public CompletableFuture<String> callTool(String toolName, Object arguments) {
+        CallToolParams params = new CallToolParams(toolName, arguments);
+        return sendRequest("tools/call", params);
+    }
+
+    public List<GithubIssue> parseIssues(String jsonResponse) {
+        // parse high-level response
+        GithubJsonRcpResponse response = mapper.readValue(jsonResponse, GithubJsonRcpResponse.class);
+        ToolCallResponse convertedToToolResponse = mapper.convertValue(response.result(), ToolCallResponse.class);
+        String issues = convertedToToolResponse.content().getFirst().text();
+        return mapper.readValue(issues, new TypeReference<List<GithubIssue>>() {
+        });
     }
 
     private CompletableFuture<Void> sendNotification(Object params) {
