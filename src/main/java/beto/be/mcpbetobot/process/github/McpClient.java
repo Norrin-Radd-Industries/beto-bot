@@ -42,6 +42,7 @@ public class McpClient {
         this.startReaderVirtualThread();
     }
 
+    // used to create connected with remote mcp server
     public CompletableFuture<Void> connect() {
         logger.info(">>> Starting Handshake...(wipe hands afterwards.) <<<");
         InitializeParams params = new InitializeParams(
@@ -56,6 +57,11 @@ public class McpClient {
                 });
     }
 
+    public CompletableFuture<String> listTools() {
+        return sendRequest("tools/list", new Object());
+    }
+
+    // used to make available toolcalls in reference to our API key
     public CompletableFuture<String> callTool(String toolName, Map<String, Object> arguments) {
         CallToolParams params = new CallToolParams(toolName, arguments);
         return sendRequest("tools/call", params)
@@ -70,6 +76,7 @@ public class McpClient {
                 });
     }
 
+    // send ACK notification basically
     private CompletableFuture<Void> sendNotification(Object params) {
         try {
             GithubJsonRcpMessage message = new GithubJsonRcpMessage(
@@ -86,6 +93,7 @@ public class McpClient {
         return CompletableFuture.completedFuture(null);
     }
 
+    // virtual thread to handle incoming response from server
     private void startReaderVirtualThread() {
         // create a new virtual thread to handle the return coming from the mcp server
         // so we dont block our entire application
@@ -109,7 +117,7 @@ public class McpClient {
         });
     }
 
-
+    // helper method to make sending requests a bit more easy
     private CompletableFuture<String> sendRequest(String method, Object params) {
         String id = String.valueOf(idCounter.getAndIncrement());
         CompletableFuture<String> future = new CompletableFuture<>();
