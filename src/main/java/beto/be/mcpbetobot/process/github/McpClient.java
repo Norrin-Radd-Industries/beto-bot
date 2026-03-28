@@ -6,12 +6,8 @@ import beto.be.mcpbetobot.messages.request.buildingblocks.ClientInfo;
 import beto.be.mcpbetobot.messages.request.buildingblocks.InitializeParams;
 import beto.be.mcpbetobot.messages.response.GithubJsonRcpResponse;
 import jakarta.annotation.PostConstruct;
-import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.*;
@@ -20,51 +16,80 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Service
-public class McpClient implements CommandLineRunner {
+
+public class McpClient {
 
     private final Logger logger = LoggerFactory.getLogger(McpClient.class);
 
-    @Value("${GITHUB_PERSONAL_ACCESS_TOKEN}")
-    private String githubApiKey;
-
+    private final Process process;
+    private final BufferedWriter bufferedWriter;
+    private final BufferedReader bufferedReader;
     AtomicInteger idCounter = new AtomicInteger(1);
     Map<String, CompletableFuture<String>> requestQueue = new ConcurrentHashMap<>();
     ObjectMapper mapper = new ObjectMapper();
-    private BufferedWriter bufferedWriter;
-    private BufferedReader bufferedReader;
 
     @PostConstruct
-    public void onStartup(){
+    public void onStartup() {
         logger.info(" >>> Starting Beto-Bot GitHub Client... <<<");
     }
 
-    public Process startProcessBuilder() throws IOException {
-        String GITHUB_PROCESS_INPUT = "npx -y @modelcontextprotocol/server-github@latest mcp-server-github";
-        ProcessBuilder processBuilder = new ProcessBuilder("cmd.exe", "/c", GITHUB_PROCESS_INPUT);
-        processBuilder.environment().put("GITHUB_PERSONAL_ACCESS_TOKEN", githubApiKey);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
-        return processBuilder.start();
-    }
-
-    @Override
-    public void run(String... args) throws IOException {
-        Process process = startProcessBuilder();
+    public McpClient(ProcessBuilder processBuilder) throws IOException {
+        this.process = processBuilder.start();
         this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
         this.bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        this.startReaderVirtualThread();
+    }
 
+    public CompletableFuture<Void> connect() {
+        logger.info(">>> Starting Handshake...(wipe hands afterwards.) <<<");
+        InitializeParams params = new InitializeParams(
+                "2025-11-25",
+                new ClientInfo("beto-bot", "1.0.0"),
+                new Capabilities()
+        );
+        // send the request to initialize the handshake
+        return sendRequest("initialize", params)
+                .thenCompose(response -> {
+                    return sendNotification(new Object());
+                });
+    }
+
+
+    public CompletableFuture<String> listTools() {
+        logger.info(">>>Asking for all available tools<<<");
+        return sendRequest(
+                "tools/list", new Object());
+    }
+
+    private CompletableFuture<Void> sendNotification(Object params) {
+        try {
+            GithubJsonRcpMessage message = new GithubJsonRcpMessage(
+                    "2.0",
+                    null,
+                    "notifications/initialized",
+                    params
+            );
+            bufferedWriter.write(mapper.writeValueAsString(message) + "\n");
+            bufferedWriter.flush();
+        } catch (IOException e) {
+            return CompletableFuture.failedFuture(e);
+        }
+        return CompletableFuture.completedFuture(null);
+    }
+
+    private void startReaderVirtualThread() {
         // create a new virtual thread to handle the return coming from the mcp server
         // so we dont block our entire application
         Thread.ofVirtual().start(() -> {
             try {
                 String line;
-                while(process.isAlive() && (line = bufferedReader.readLine()) != null){
+                while (process.isAlive() && (line = bufferedReader.readLine()) != null) {
                     // parse line to get id
                     GithubJsonRcpResponse response = mapper.readValue(line, GithubJsonRcpResponse.class);
-                    if (response.id() != null){
+                    if (response.id() != null) {
                         // if future is found, complete it
                         CompletableFuture<String> future = requestQueue.remove(response.id());
-                        if (future != null){
+                        if (future != null) {
                             future.complete(line);
                         }
                     }
@@ -73,27 +98,6 @@ public class McpClient implements CommandLineRunner {
                 logger.error("Error while getting mcp server output: {}", e.getMessage());
             }
         });
-
-        logger.info(">>> Starting Handshake...(wipe hands afterwards.) <<<");
-        InitializeParams params = new InitializeParams(
-                "2025-11-25",
-                new ClientInfo("beto-bot", "1.0.0"),
-                new Capabilities()
-        );
-
-        sendRequest("initialize", params)
-                .thenCompose(initResponse -> {
-                    logger.info(">>> Handshake success 'start cleaning!'<<<");
-                    return sendRequest("tools/list", new Object());
-                })
-                .thenAccept(toolsJson -> {
-                    logger.info("Tools received, you tool!");
-                    logger.info(toolsJson);
-                })
-                .exceptionally(ex -> {
-                    logger.error("Failure because : {}", ex.getMessage());
-                    return null;
-                });
     }
 
 
@@ -111,7 +115,7 @@ public class McpClient implements CommandLineRunner {
             );
             bufferedWriter.write(mapper.writeValueAsString(message) + "\n");
             bufferedWriter.flush();
-        } catch (IOException e){
+        } catch (IOException e) {
             logger.error("error occurred while fetching response");
             future.completeExceptionally(e);
             requestQueue.remove(id);
