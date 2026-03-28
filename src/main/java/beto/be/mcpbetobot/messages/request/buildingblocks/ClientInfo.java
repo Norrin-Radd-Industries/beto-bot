@@ -1,4 +1,4 @@
-package beto.be.mcpbetobot.messages.buildingblocks;
+package beto.be.mcpbetobot.messages.request.buildingblocks;
 
 public record ClientInfo(
         String name,
