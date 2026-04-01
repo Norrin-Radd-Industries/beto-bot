@@ -303,6 +303,14 @@ private void startAgent(String prompt, List<Tool> tools) {
         // add the llm's response to the history too  
         Content modelResponse = response.candidates()  
                 .flatMap(list -> list.stream().findFirst())  
+            if (call.args().isPresent() && call.name().isPresent()) {  
+                String result = githubClient.callTool(call.name().get(), call.args().get()).join();  
+                history.add(Content.builder().role("function")  
+                        .parts(List.of(Part.builder()  
+                                .functionResponse(FunctionResponse.builder()  
+                                        .name(call.name().get())  
+                                        .response(Map.of("result", result))  
+                                        .build())  
                 .flatMap(Candidate::content)  
                 .orElse(Content.builder().build());  
   
@@ -328,14 +336,6 @@ private void startAgent(String prompt, List<Tool> tools) {
         if (toolCall.isPresent()) {  
             FunctionCall call = toolCall.get();  
             logger.info("---Using {}", call.name());  
-            if (call.args().isPresent() && call.name().isPresent()) {  
-                String result = githubClient.callTool(call.name().get(), call.args().get()).join();  
-                history.add(Content.builder().role("function")  
-                        .parts(List.of(Part.builder()  
-                                .functionResponse(FunctionResponse.builder()  
-                                        .name(call.name().get())  
-                                        .response(Map.of("result", result))  
-                                        .build())  
                                 .build()))  
                         .build());  
             }  
