@@ -1,7 +1,5 @@
 package beto.be.mcpbetobot.messages.request.buildingblocks;
 
-public record CallToolParams(
-        String name,
-        Object arguments
-) {
-}
+import java.util.Map;
+
+public record CallToolParams(String name, Map<String, Object> arguments) {}
