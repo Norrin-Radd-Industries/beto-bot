@@ -73,40 +73,6 @@ handshake example: [[Requests (28-03)#Sending the Handshake]]
 
 
 ---
-
-
-### More on why the queue and completeableFuture
-
-### The requestQueue is the "Ticket Counter"
-  The requestQueue is where you store the "Unfilled Promises" while you wait for the server to reply.
-
-   * When you call sendRequest("list_issues"):
-       1. Java creates a "Ticket" (the CompletableFuture).
-       2. Java puts that Ticket in the requestQueue Map with the label "2".
-       3. Java then just sits there (non-blockingly) waiting for that Ticket to be stamped.
-
-   * In the Background Thread (the Mail Sorter):
-       1. The thread is constantly reading lines of text from the server.
-       2. It sees: {"id": "2", "result": [...]}.
-       3. It asks the requestQueue: "Hey, do we have a waiting ticket for ID 2?"
-       4. It finds the Ticket and calls .complete(data).
-
- ### Without the requestQueue...
-  Your Java code would have no idea which response belongs to which request. It would just see a random string of JSON and not
-  know if it's the tools list, an issue list, or an error message.
-
- #### Why use CompletableFuture?
-  The CompletableFuture is the "Magic Portal" that lets your main code (the run() method) stay clean and readable:
-
-   1 githubClient.callTool("list_issues") // This returns the 'Ticket' from the queue
-   2     .thenAccept(data -> {
-   3         // This code ONLY runs when the background thread
-   4         // finds the 'id' and completes the ticket!
-   5     });
-
-
-
-
 ## Continuing with the integration of Gemini API
 
 First, i read the docs on https://ai.google.dev/gemini-api/docs/quickstart#java
