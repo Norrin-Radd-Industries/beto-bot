@@ -3,6 +3,7 @@ package beto.be.mcpbetobot.util;
 import beto.be.mcpbetobot.messages.response.GithubIssue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.types.FunctionDeclaration;
@@ -11,9 +12,7 @@ import com.google.genai.types.Tool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 
 public class Parser {
@@ -30,13 +29,14 @@ public class Parser {
         // map to hold the gemini functionDeclarations
         List<FunctionDeclaration> declarations = new ArrayList<>();
 
-        toolsNode.forEach(tool -> {
+        for (int i = 0; i < toolsNode.size(); i++) {
+            JsonNode tool = toolsNode.get(i);
             String name = tool.get("name").asText();
             String description = tool.get("description").asText();
 
-            // both use same json schema so we can map it easily
             JsonNode githubSchema = tool.get("inputSchema");
-            Schema geminiSchema = mapper.convertValue(githubSchema, Schema.class);
+            String schemaJson = mapper.writeValueAsString(githubSchema);
+            Schema geminiSchema = Schema.fromJson(schemaJson); // using the built in parser from google Schema now
 
             declarations.add(
                     FunctionDeclaration.builder()
@@ -45,7 +45,7 @@ public class Parser {
                             .parameters(geminiSchema)
                             .build()
             );
-        });
+        }
         // call the builder for google's Tool to inject the declarations into
         return List.of(Tool.builder().functionDeclarations(declarations).build());
     }
@@ -53,6 +53,7 @@ public class Parser {
     public static List<GithubIssue> parseIssues(String issue) {
         try {
             ObjectMapper mapper = new ObjectMapper();
+            mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             return mapper.readValue(issue, new TypeReference<List<GithubIssue>>() {});
         } catch (JsonProcessingException e) {
             logger.error("error parsing issue");

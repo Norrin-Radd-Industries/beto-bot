@@ -54,9 +54,7 @@ public class McpClient {
         );
         // send the request to initialize the handshake
         return sendRequest("initialize", params)
-                .thenCompose(response -> {
-                    return sendNotification(new Object());
-                });
+                .thenCompose(response -> sendNotification(new Object()));
     }
 
     /**
@@ -106,20 +104,24 @@ public class McpClient {
             try {
                 String line;
                 while (process.isAlive() && (line = bufferedReader.readLine()) != null) {
-                    // parse line to get id
-                    GithubJsonRcpResponse response = mapper.readValue(line, GithubJsonRcpResponse.class);
-                    if (response.id() != null) {
-                        // if future is found, complete it
-                        CompletableFuture<String> future = requestQueue.remove(response.id());
-                        if (future != null) {
-                            future.complete(line);
+                    try {
+                        JsonNode root = mapper.readTree(line);
+                        if (root.has("id") && !root.get("id").isNull()) {
+                            String id = root.get("id").asString();
+                            CompletableFuture<String> future = requestQueue.remove(id);
+                            if (future != null) {
+                                future.complete(line);
+                            }
                         }
+                    } catch (Exception e) {
+                        logger.error("Error parsing MCP server message: {}", line, e);
                     }
                 }
             } catch (IOException e) {
-                logger.error("Error while getting mcp server output: {}", e.getMessage());
+                logger.error("Error reading from MCP server stream: {}", e.getMessage());
             }
         });
+
     }
 
     /**
@@ -149,15 +151,21 @@ public class McpClient {
 
 
     /**
-     * Method to parse the raw RCP response into a structured text
+     * Method to parse the raw RCP response into a structured text for tools
      */
     private String extractTextFromMcpJson(String json) {
-        JsonNode root = mapper.readTree(json);
-        JsonNode content = root.path("result").path("content");
-
-        if (content.isArray() && !content.isEmpty()) {
-            return content.get(0).path("text").asString();
+        try {
+            JsonNode root = mapper.readTree(json);
+            if (root.has("error")) {
+                return "Error from tool: " + root.path("error").path("message").asString();
+            }
+            JsonNode content = root.path("result").path("content");
+            if (content.isArray() && !content.isEmpty()) {
+                return content.get(0).path("text").asString();
+            }
+            return "no text content found";
+        } catch (Exception e) {
+         return "Failed to parse tool response: " + e.getMessage();
         }
-        return "no text content found";
     }
 }

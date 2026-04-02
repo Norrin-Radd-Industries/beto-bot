@@ -14,9 +14,8 @@ import java.util.List;
 @Service
 public class GeminiAgent {
 
-    private final Logger logger = LoggerFactory.getLogger(GeminiAgent.class);
     private final Client client = new Client();
-    private final String PRO = "gemini-1.5-pro";
+    private final String PRO = "gemini-2.5-pro";
 
     public String ask(String prompt) {
         GenerateContentResponse response =

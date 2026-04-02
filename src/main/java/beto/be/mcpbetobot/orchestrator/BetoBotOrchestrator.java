@@ -5,7 +5,6 @@ import beto.be.mcpbetobot.facilitator.GeminiAgent;
 import beto.be.mcpbetobot.messages.response.GithubIssue;
 import beto.be.mcpbetobot.process.github.McpClient;
 import beto.be.mcpbetobot.util.Parser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.genai.types.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +38,7 @@ public class BetoBotOrchestrator implements CommandLineRunner {
                 .thenAccept(tools -> {
                     try {
                        cachedGeminiTools = Parser.parseGithubMcpToolsToGeminiTools(tools);
-                    } catch (JsonProcessingException e) {
+                    } catch (Exception e) {
                         logger.error("Error parsing Tools");
                         throw new RuntimeException(e);
                     }
@@ -65,7 +64,7 @@ public class BetoBotOrchestrator implements CommandLineRunner {
                     .flatMap(list -> list.stream().findFirst())
                     .flatMap(Candidate::content)
                     .orElse(Content.builder().build());
-
+            logger.info(modelResponse.text() != null ? modelResponse.text() : "no text response available, could be tool call");
             history.add(modelResponse);
 
             List<Part> parts = response.candidates()
@@ -87,7 +86,7 @@ public class BetoBotOrchestrator implements CommandLineRunner {
 
             if (toolCall.isPresent()) {
                 FunctionCall call = toolCall.get();
-                logger.info("---Using {}", call.name());
+                logger.info("---Using {} with arguments {}", call.name(), call.args());
                 if (call.args().isPresent() && call.name().isPresent()) {
                     String result = githubClient.callTool(call.name().get(), call.args().get()).join();
                     history.add(Content.builder().role("function")

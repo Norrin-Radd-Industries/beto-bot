@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A scheduler to run a fetch every 30 min for issues on a specific github repo
@@ -29,7 +30,7 @@ public class BetoBotIssueFetcher {
         this.applicationEventPublisher = applicationEventPublisher;
     }
     //TODO make it more generic instead of limiting it one repo
-    @Scheduled(fixedRate = 18000000)
+    @Scheduled(fixedRate = 18000000, initialDelay = 5000)
     public void checkForAvailableWork() {
         logger.info(" --Checking for available work-- ");
         githubClient.callTool("list_issues", Map.of("owner", "SilverSurferState",
@@ -37,10 +38,14 @@ public class BetoBotIssueFetcher {
                         "state", "open"))
                 .thenAccept(issues -> {
                     List<GithubIssue> newIssues = Parser.parseIssues(issues);
+                    logger.info(issues);
                 // send an event to the coder tool when new issues are found
                     newIssues.forEach(issue -> {
                         applicationEventPublisher.publishEvent(new GithubIssueEvent("Fetcher", issue));
                     });
+                }).exceptionally(e -> {
+                    logger.error("Error occurred while fetching issues: {}", e.getMessage());
+                    return null;
                 });
     }
 }
