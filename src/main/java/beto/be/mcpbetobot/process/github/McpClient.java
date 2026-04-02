@@ -6,10 +6,10 @@ import beto.be.mcpbetobot.messages.request.buildingblocks.Capabilities;
 import beto.be.mcpbetobot.messages.request.buildingblocks.ClientInfo;
 import beto.be.mcpbetobot.messages.request.buildingblocks.InitializeParams;
 import beto.be.mcpbetobot.messages.response.GithubJsonRcpResponse;
-import beto.be.mcpbetobot.messages.response.toolresponse.ToolCallResponse;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.*;
@@ -42,7 +42,9 @@ public class McpClient {
         this.startReaderVirtualThread();
     }
 
-    // used to create connected with remote mcp server
+    /**
+     * Connection method to initialize handshake with Github's MCP server
+     */
     public CompletableFuture<Void> connect() {
         logger.info(">>> Starting Handshake...(wipe hands afterwards.) <<<");
         InitializeParams params = new InitializeParams(
@@ -52,31 +54,29 @@ public class McpClient {
         );
         // send the request to initialize the handshake
         return sendRequest("initialize", params)
-                .thenCompose(response -> {
-                    return sendNotification(new Object());
-                });
+                .thenCompose(response -> sendNotification(new Object()));
     }
 
+    /**
+     * Method our LLM can use to get all available tools
+     */
     public CompletableFuture<String> listTools() {
-        return sendRequest("tools/list", new Object());
+        logger.info(">>>Asking for all available tools<<<");
+        return sendRequest(
+                "tools/list", new Object());
     }
 
-    // used to make available toolcalls in reference to our API key
-    public CompletableFuture<String> callTool(String toolName, Map<String, Object> arguments) {
+    /**
+     * Method to call a specific tool
+     */
+    public CompletableFuture<String> callTool(String toolName, Map<String, Object> arguments){
         CallToolParams params = new CallToolParams(toolName, arguments);
-        return sendRequest("tools/call", params)
-                .thenApply(rawJson -> {
-                    try {
-                        GithubJsonRcpResponse response = mapper.readValue(rawJson, GithubJsonRcpResponse.class);
-                        ToolCallResponse toolResult = mapper.convertValue(response.result(), ToolCallResponse.class);
-                        return toolResult.content().getFirst().text();
-                    } catch (Exception e) {
-                        throw new RuntimeException("error parsing jsonResponse: " +  e.getMessage());
-                    }
-                });
+        return sendRequest("tools/call", params).thenApply(this::extractTextFromMcpJson);
     }
 
-    // send ACK notification basically
+    /**
+     * Second part of the handshake, basically an ACK
+     */
     private CompletableFuture<Void> sendNotification(Object params) {
         try {
             GithubJsonRcpMessage message = new GithubJsonRcpMessage(
@@ -93,7 +93,10 @@ public class McpClient {
         return CompletableFuture.completedFuture(null);
     }
 
-    // virtual thread to handle incoming response from server
+    /**
+     * Using virtual thread here because why not :)
+     * and we can make sure our application is not stalling on github's response
+     */
     private void startReaderVirtualThread() {
         // create a new virtual thread to handle the return coming from the mcp server
         // so we dont block our entire application
@@ -101,23 +104,29 @@ public class McpClient {
             try {
                 String line;
                 while (process.isAlive() && (line = bufferedReader.readLine()) != null) {
-                    // parse line to get id
-                    GithubJsonRcpResponse response = mapper.readValue(line, GithubJsonRcpResponse.class);
-                    if (response.id() != null) {
-                        // if future is found, complete it
-                        CompletableFuture<String> future = requestQueue.remove(response.id());
-                        if (future != null) {
-                            future.complete(line);
+                    try {
+                        JsonNode root = mapper.readTree(line);
+                        if (root.has("id") && !root.get("id").isNull()) {
+                            String id = root.get("id").asString();
+                            CompletableFuture<String> future = requestQueue.remove(id);
+                            if (future != null) {
+                                future.complete(line);
+                            }
                         }
+                    } catch (Exception e) {
+                        logger.error("Error parsing MCP server message: {}", line, e);
                     }
                 }
             } catch (IOException e) {
-                logger.error("Error while getting mcp server output: {}", e.getMessage());
+                logger.error("Error reading from MCP server stream: {}", e.getMessage());
             }
         });
+
     }
 
-    // helper method to make sending requests a bit more easy
+    /**
+     * Generic method to send a request to the MCP server
+     */
     private CompletableFuture<String> sendRequest(String method, Object params) {
         String id = String.valueOf(idCounter.getAndIncrement());
         CompletableFuture<String> future = new CompletableFuture<>();
@@ -138,5 +147,25 @@ public class McpClient {
             requestQueue.remove(id);
         }
         return future;
+    }
+
+
+    /**
+     * Method to parse the raw RCP response into a structured text for tools
+     */
+    private String extractTextFromMcpJson(String json) {
+        try {
+            JsonNode root = mapper.readTree(json);
+            if (root.has("error")) {
+                return "Error from tool: " + root.path("error").path("message").asString();
+            }
+            JsonNode content = root.path("result").path("content");
+            if (content.isArray() && !content.isEmpty()) {
+                return content.get(0).path("text").asString();
+            }
+            return "no text content found";
+        } catch (Exception e) {
+         return "Failed to parse tool response: " + e.getMessage();
+        }
     }
 }
