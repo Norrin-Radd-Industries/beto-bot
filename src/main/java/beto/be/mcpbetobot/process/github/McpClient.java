@@ -1,10 +1,12 @@
 package beto.be.mcpbetobot.process.github;
 
 import beto.be.mcpbetobot.messages.request.GithubJsonRcpMessage;
+import beto.be.mcpbetobot.messages.request.buildingblocks.CallToolParams;
 import beto.be.mcpbetobot.messages.request.buildingblocks.Capabilities;
 import beto.be.mcpbetobot.messages.request.buildingblocks.ClientInfo;
 import beto.be.mcpbetobot.messages.request.buildingblocks.InitializeParams;
 import beto.be.mcpbetobot.messages.response.GithubJsonRcpResponse;
+import beto.be.mcpbetobot.messages.response.toolresponse.ToolCallResponse;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +42,7 @@ public class McpClient {
         this.startReaderVirtualThread();
     }
 
+    // used to create connected with remote mcp server
     public CompletableFuture<Void> connect() {
         logger.info(">>> Starting Handshake...(wipe hands afterwards.) <<<");
         InitializeParams params = new InitializeParams(
@@ -54,13 +57,26 @@ public class McpClient {
                 });
     }
 
-
     public CompletableFuture<String> listTools() {
-        logger.info(">>>Asking for all available tools<<<");
-        return sendRequest(
-                "tools/list", new Object());
+        return sendRequest("tools/list", new Object());
     }
 
+    // used to make available toolcalls in reference to our API key
+    public CompletableFuture<String> callTool(String toolName, Map<String, Object> arguments) {
+        CallToolParams params = new CallToolParams(toolName, arguments);
+        return sendRequest("tools/call", params)
+                .thenApply(rawJson -> {
+                    try {
+                        GithubJsonRcpResponse response = mapper.readValue(rawJson, GithubJsonRcpResponse.class);
+                        ToolCallResponse toolResult = mapper.convertValue(response.result(), ToolCallResponse.class);
+                        return toolResult.content().getFirst().text();
+                    } catch (Exception e) {
+                        throw new RuntimeException("error parsing jsonResponse: " +  e.getMessage());
+                    }
+                });
+    }
+
+    // send ACK notification basically
     private CompletableFuture<Void> sendNotification(Object params) {
         try {
             GithubJsonRcpMessage message = new GithubJsonRcpMessage(
@@ -77,6 +93,7 @@ public class McpClient {
         return CompletableFuture.completedFuture(null);
     }
 
+    // virtual thread to handle incoming response from server
     private void startReaderVirtualThread() {
         // create a new virtual thread to handle the return coming from the mcp server
         // so we dont block our entire application
@@ -100,7 +117,7 @@ public class McpClient {
         });
     }
 
-
+    // helper method to make sending requests a bit more easy
     private CompletableFuture<String> sendRequest(String method, Object params) {
         String id = String.valueOf(idCounter.getAndIncrement());
         CompletableFuture<String> future = new CompletableFuture<>();
