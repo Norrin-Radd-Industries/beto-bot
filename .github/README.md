@@ -140,7 +140,7 @@ There is not much setup for this because they guardrails are being enforced by t
 To be able to use the beto-bot with repositories we own, i created a fine grained personal access token in github ( currently for 30 days )
 with the following access: 
 
-![accessexample](Pasted image 20260328150237.png)
+![accessexample](access-example.png)
 
 ---
 
@@ -325,7 +325,7 @@ So how does the process take place?
 
 it basically follows this loop : 
 
-![agenticloop](Pasted image 20260404163105.png) source: https://ai.google.dev/gemini-api/docs/function-calling?example=weather#mcp-limitations
+![agenticloop](agentic_loop.png) source: https://ai.google.dev/gemini-api/docs/function-calling?example=weather#mcp-limitations
 
 ```markdown
 initial prompt -> into history -> history -> agent -> checks prompt -> needs tools ? use tool from mcp server through client : return answer
@@ -372,18 +372,18 @@ extractModelResponse, extractText, mapGithubToolsToGemini are basically examples
 # some examples and logs
 
 An issue i created 
-![screenshot1](Pasted image 20260404214344.png)
+![screenshot1](repo_issue.png)
 
 And the agent's PR
-![screenshot2](Pasted image 20260404214253.png)
+![screenshot2](repo_fix_pr.png)
 
 Application log output : 
 
-![screenshot3](Pasted image 20260404214701.png)
+![screenshot3](application_log.png)
 
 Some examples of the MCP server proxy communication: 
 
 you'll notice here the id here that increments +1 each progressive response
 
-![screenshot4](Pasted image 20260404214829.png)
+![screenshot4](mcp_server_log.png)
 
