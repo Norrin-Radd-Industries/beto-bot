@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: mcp-betobot
+  threads:
+    virtual:
+      enabled: true
+
+  ai:
+    mcp:
+      client:
+        type: ASYNC
+        enabled: false
+        sse:
+          connections:
+            github:
+              url: http://host.docker.internal:9090/mcp
+              sse-endpoint: /sse

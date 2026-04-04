@@ -1,6 +1,6 @@
 package beto.be.mcpbetobot.events;
 
-import beto.be.mcpbetobot.messages.response.GithubIssue;
+import beto.be.mcpbetobot.domain.GithubIssue;
 import org.springframework.context.ApplicationEvent;
 
 public class GithubIssueEvent extends ApplicationEvent {

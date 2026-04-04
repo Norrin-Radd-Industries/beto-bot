@@ -1,122 +1,124 @@
 package beto.be.mcpbetobot.orchestrator;
 
 import beto.be.mcpbetobot.events.GithubIssueEvent;
-import beto.be.mcpbetobot.facilitator.GeminiAgent;
-import beto.be.mcpbetobot.messages.response.GithubIssue;
-import beto.be.mcpbetobot.process.github.McpClient;
-import beto.be.mcpbetobot.util.Parser;
+import beto.be.mcpbetobot.facilitator.Agent;
+import beto.be.mcpbetobot.domain.GithubIssue;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.types.*;
+import io.modelcontextprotocol.client.McpAsyncClient;
+import io.modelcontextprotocol.spec.McpSchema;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
-public class BetoBotOrchestrator implements CommandLineRunner {
+public class BetoBotOrchestrator {
 
     private final Logger logger = LoggerFactory.getLogger(BetoBotOrchestrator.class);
 
-    private final McpClient githubClient;
-    private final GeminiAgent geminiAgent;
-    private List<Tool> cachedGeminiTools = new ArrayList<>();
+    private final McpAsyncClient githubMcpClientImpl;
+    private final Agent agent;
 
-    public BetoBotOrchestrator(McpClient mcpClient, GeminiAgent geminiAgent) {
-        this.githubClient = mcpClient;
-        this.geminiAgent = geminiAgent;
-    }
-
-    /**
-     * Initial handshake and tool fetch + cache
-     */
-    @Override
-    public void run(String... args) {
-        githubClient.connect()
-                .thenCompose(v -> githubClient.listTools())
-                .thenAccept(tools -> {
-                    try {
-                       cachedGeminiTools = Parser.parseGithubMcpToolsToGeminiTools(tools);
-                    } catch (Exception e) {
-                        logger.error("Error parsing Tools");
-                        throw new RuntimeException(e);
-                    }
-                });
-    }
-
-    private void startAgent(String prompt, List<Tool> tools) {
-        List<Content> history = new ArrayList<>();
-        history.add(Content.builder()
-                .role("user")
-                .parts(List.of(Part.builder()
-                        .text(prompt)
-                        .build()))
-                .build());
-
-        boolean finished = false;
-        while (!finished) {
-            GenerateContentConfig config = GenerateContentConfig.builder().tools(tools).build();
-            GenerateContentResponse response = geminiAgent.askWithTools(history, config);
-
-            // add the llm's response to the history too
-            Content modelResponse = response.candidates()
-                    .flatMap(list -> list.stream().findFirst())
-                    .flatMap(Candidate::content)
-                    .orElse(Content.builder().build());
-            logger.info(modelResponse.text() != null ? modelResponse.text() : "no text response available, could be tool call");
-            history.add(modelResponse);
-
-            List<Part> parts = response.candidates()
-                    .flatMap(list -> list.stream().findFirst())
-                    .flatMap(Candidate::content)
-                    .flatMap(Content::parts)
-                    .orElse(Collections.emptyList());
-
-            if (parts.isEmpty()) {
-                logger.error("Empty response or gated response by LLM");
-                finished = true;
-                continue;
-            }
-
-            Optional<FunctionCall> toolCall = parts.stream()
-                    .map(Part::functionCall)
-                    .flatMap(Optional::stream)
-                    .findFirst();
-
-            if (toolCall.isPresent()) {
-                FunctionCall call = toolCall.get();
-                logger.info("---Using {} with arguments {}", call.name(), call.args());
-                if (call.args().isPresent() && call.name().isPresent()) {
-                    String result = githubClient.callTool(call.name().get(), call.args().get()).join();
-                    history.add(Content.builder().role("function")
-                            .parts(List.of(Part.builder()
-                                    .functionResponse(FunctionResponse.builder()
-                                            .name(call.name().get())
-                                            .response(Map.of("result", result))
-                                            .build())
-                                    .build()))
-                            .build());
-                }
-            } else {
-                String answer = parts.stream()
-                        .map(Part::text)
-                        .flatMap(Optional::stream)
-                        .findFirst()
-                        .orElse("No answer given");
-
-                logger.info("---Answer: {}", answer);
-                finished = true;
-            }
-        }
+    public BetoBotOrchestrator(List<McpAsyncClient> customMcpAsyncClientList, Agent agent) {
+        this.githubMcpClientImpl = customMcpAsyncClientList.getFirst();
+        this.agent = agent;
     }
 
     @EventListener
     public void processTicket(GithubIssueEvent issueEvent){
         GithubIssue issue = issueEvent.getGithubIssue();
-        logger.info(">>> Agent starting on issue: {} <<<", issue.number());
 
-        String prompt = String.format("""
+        logger.info(">>> Orchestrating agent for issue: {} <<<", issue.number());
+
+        githubMcpClientImpl.listTools() // hands agent tools from mcp
+                .timeout(Duration.ofSeconds(60)) // give the agent some time to think
+                .doOnSuccess(toolsList -> {
+                    List<Tool> geminiTools = toolsList != null ? mapGithubToolsToGemini(toolsList.tools()) : Collections.emptyList();
+                    String prompt = buildPrompt(issue);
+                    // start thread to have it non-blocking
+                    Thread.ofVirtual().start(() -> {
+                        try {
+                            startAgent(prompt, geminiTools);
+                        } catch (Exception e) {
+                            logger.error("Virtual Thread with agent failed: {}", e.getMessage());
+                        }
+                    });
+                })
+                .doOnError(error -> logger.error("Orchestration failed: {}", error.getMessage()))
+                .subscribe();
+
+    }
+
+
+    private void startAgent(String prompt, List<Tool> tools) {
+        List<Content> history = new ArrayList<>();
+        //hand it our initial prompt
+        history.add(buildMessage(prompt));
+
+        boolean finished = false;
+        while (!finished) {
+            GenerateContentConfig config = GenerateContentConfig.builder().tools(tools).build();
+            GenerateContentResponse response = agent.askWithTools(history, config);
+
+            Content modelResponse = extractModelResponse(response);
+            history.add(modelResponse);
+
+            Optional<FunctionCall> toolCall = fetchToolCall(modelResponse);
+            if (toolCall.isPresent()) {
+                executeToolAndAddToHistory(toolCall.get(), history);
+            } else {
+                logger.info("---Answer: {}", extractText(modelResponse));
+                finished = true;
+            }
+        }
+    }
+
+    // when the agent uses a tool we want to see which one and add it to the conversation history
+    private void executeToolAndAddToHistory(FunctionCall call, List<Content> history) {
+        if(call.name().isPresent() && call.args().isPresent()){
+            String name = call.name().get();
+            Map<String, Object> args = call.args().orElse(Collections.emptyMap());
+
+            logger.info(" >>> Using mcp-tool: {}", name);
+
+            McpSchema.CallToolResult result = githubMcpClientImpl.callTool(
+                    new McpSchema.CallToolRequest(name, args)).block();
+            if (result != null) {
+                String toolOutput = result.content().stream()
+                        .map(content -> {
+                            if (content instanceof McpSchema.TextContent textContent) {
+                                return textContent.text();
+                            }
+                            return content.toString();
+                        })
+                        .collect(Collectors.joining("\n"));
+                history.add(Content.builder().role("function")
+                        .parts(List.of(Part.builder()
+                                .functionResponse(FunctionResponse
+                                        .builder()
+                                        .name(name)
+                                        .response(Map.of("result",toolOutput))
+                                        .build())
+                                .build()))
+                        .build()
+                );
+            }
+        }
+    }
+
+
+    /* <<< Helper methods >>> */
+
+    private static @NonNull String buildPrompt(GithubIssue issue) {
+        return String.format("""
                 System context:
                 Repository owner: SilverSurferState
                 Repository name: beto-bot
@@ -129,17 +131,74 @@ public class BetoBotOrchestrator implements CommandLineRunner {
                 Description: %s
                 
                 Todo:
-                1. Use 'get_file_contents' to understand the project
+                1. Use 'get_file_contents' with path='.' to list the root directory and to understand the project
                 2. Once you understand the project, implement or fix the issue
                 3. Create a new branch named 'feature/issue-%d'
                 4. Use 'push_files' to commit your changes and to that branch you just created
-                5. Finish by summarizing what you changed
+                5. Finish by using 'create_pull_request' to create a new pull request and
+                summarizing what you changed in the 'body' section of the 'create_pull_request' function.
                 """, issue.title(), issue.body(), issue.number());
+    }
 
-        if (!this.cachedGeminiTools.isEmpty()){
-            startAgent(prompt, this.cachedGeminiTools);
-        } else {
-            logger.error("no tools found, check handshake logic");
+    private Content buildMessage(String text) {
+        return Content.builder()
+                .role("user")
+                .parts(List.of(Part.builder()
+                        .text(text)
+                        .build()))
+                .build();
+    }
+
+    // response has candidates -> has content -> has parts ( all optional )
+    private Content extractModelResponse(GenerateContentResponse response) {
+        return response.candidates()
+                .flatMap(list -> list.stream().findFirst())
+                .flatMap(Candidate::content)
+                .orElseThrow(() -> new RuntimeException("Agent returned and empty response"));
+    }
+
+    // checks if the agent requires a tool to proceed
+    private Optional<FunctionCall> fetchToolCall(Content content) {
+        return content.parts().stream()
+                .flatMap(List::stream)
+                .map(Part::functionCall)
+                .flatMap(Optional::stream)
+                .findFirst();
+    }
+
+    // gathers the parts to form answer
+    private String extractText(Content content) {
+        return content.parts().stream()
+                .flatMap(List::stream)
+                .map(Part::text)
+                .flatMap(Optional::stream)
+                .collect(Collectors.joining("\n"));
+    }
+
+    // map tools from our mcp so agent knows its there
+    private List<Tool> mapGithubToolsToGemini(List<McpSchema.Tool> githubTools){
+        List<FunctionDeclaration> declarations = githubTools.stream()
+                .map(githubTool -> FunctionDeclaration.builder()
+                        .name(githubTool.name())
+                        .description(githubTool.description())
+                        .parameters(githubToGeminiSchema(githubTool.inputSchema())
+                        ).build())
+                .toList();
+
+        return List.of(Tool.builder().functionDeclarations(declarations).build());
+    }
+
+    // method to parse the github jsonSchema to the geminiSchema TODO check if works for other agents
+    private Schema githubToGeminiSchema(McpSchema.JsonSchema githubSchema) {
+        try {
+            ObjectMapper mapper = new ObjectMapper()
+                    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+            String schemaJson = mapper.writeValueAsString(githubSchema);
+            return Schema.fromJson(schemaJson);
+        } catch (JsonProcessingException e) {
+            logger.error("Error parsing githubSchema <-> geminiSchema");
         }
+        return null;
     }
 }

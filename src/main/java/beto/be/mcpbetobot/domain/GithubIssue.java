@@ -1,4 +1,4 @@
-package beto.be.mcpbetobot.messages.response;
+package beto.be.mcpbetobot.domain;
 
 public record GithubIssue(
         int number,

@@ -1,26 +1,47 @@
 package beto.be.mcpbetobot.config;
 
-import beto.be.mcpbetobot.process.github.McpClient;
-import org.springframework.beans.factory.annotation.Value;
+import io.modelcontextprotocol.client.McpAsyncClient;
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import reactor.util.retry.Retry;
 
-import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
 
 @Configuration
 public class McpConfig {
 
-    @Value("${GITHUB_PERSONAL_ACCESS_TOKEN}")
-    private String githubApiKey;
-
+    private final Logger logger = LoggerFactory.getLogger(McpConfig.class);
 
     @Bean
-    public McpClient githubClient() throws IOException {
-        ProcessBuilder processBuilder = new ProcessBuilder("cmd.exe", "/c",
-                "npx -y @modelcontextprotocol/server-github@latest mcp-server-github");
-        processBuilder.environment().put("GITHUB_PERSONAL_ACCESS_TOKEN", githubApiKey);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
-        return new McpClient(processBuilder);
+    @Primary
+    public McpAsyncClient githubMcpClient() {
+        String mcpUrl = "http://localhost:9090/sse";
+
+        var transport = HttpClientSseClientTransport.builder(mcpUrl)
+                .build();
+
+        var client = McpClient.async(transport)
+                .requestTimeout(Duration.ofMinutes(5)).build();
+        try {
+            logger.info("--- Connecting to GitHub MCP Proxy ---");
+            client.initialize()
+                    .retryWhen(Retry.fixedDelay(10, Duration.ofSeconds(2)))
+                    .block(Duration.ofSeconds(30));
+            logger.info("--- GITHUB MCP READY ---");
+        } catch (Exception e) {
+            logger.error("Failed to init with MCP Proxy: {}", e.getMessage());
+        }
+        return client;
+    }
+
+    @Bean
+    public List<McpAsyncClient> customMcpAsyncClientList(McpAsyncClient githubMcpClient) {
+        return List.of(githubMcpClient);
     }
 }
-
