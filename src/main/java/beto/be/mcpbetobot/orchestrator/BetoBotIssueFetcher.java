@@ -6,6 +6,7 @@ import io.modelcontextprotocol.client.McpAsyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,12 @@ public class BetoBotIssueFetcher {
     private final McpAsyncClient githubMcpClientImpl;
     private final ApplicationEventPublisher applicationEventPublisher;
 
+    @Value("${github.repo.owner}")
+    private String repoOwner;
+
+    @Value("${github.repo.name}")
+    private String repoName;
+
     public BetoBotIssueFetcher(List<McpAsyncClient> customMcpAsyncClientList,
                                ApplicationEventPublisher applicationEventPublisher) {
         this.githubMcpClientImpl = customMcpAsyncClientList.getFirst();
@@ -34,8 +41,8 @@ public class BetoBotIssueFetcher {
     public void checkForAvailableWork() {
         logger.info(" --Checking for available work-- ");
         githubMcpClientImpl.callTool(new McpSchema.CallToolRequest("list_issues",
-                Map.of("owner", "SilverSurferState",
-                        "repo", "beto-bot",
+                Map.of("owner", repoOwner,
+                        "repo", repoName,
                         "state", "open")))
                 .flatMapIterable(result -> {
                     String json = result.content().stream()

@@ -15,3 +15,8 @@ spring:
             github:
               url: http://host.docker.internal:9090/mcp
               sse-endpoint: /sse
+
+github:
+  repo:
+    owner: SilverSurferState
+    name: beto-bot

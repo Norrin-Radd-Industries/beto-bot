@@ -12,6 +12,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +28,12 @@ public class BetoBotOrchestrator {
     private final McpAsyncClient githubMcpClientImpl;
     private final Agent agent;
 
+    @Value("${github.repo.owner}")
+    private String repoOwner;
+
+    @Value("${github.repo.name}")
+    private String repoName;
+
     public BetoBotOrchestrator(List<McpAsyncClient> customMcpAsyncClientList, Agent agent) {
         this.githubMcpClientImpl = customMcpAsyncClientList.getFirst();
         this.agent = agent;
@@ -36,7 +43,7 @@ public class BetoBotOrchestrator {
     public void processTicket(GithubIssueEvent issueEvent){
         GithubIssue issue = issueEvent.getGithubIssue();
 
-        logger.info(">>> Orchestrating agent for issue: {} <<<", issue.number());
+        logger.info(">>> Orchestrating agent for issue: {} <<<\", issue.number());
 
         githubMcpClientImpl.listTools() // hands agent tools from mcp
                 .timeout(Duration.ofSeconds(60)) // give the agent some time to think
@@ -48,11 +55,11 @@ public class BetoBotOrchestrator {
                         try {
                             startAgent(prompt, geminiTools);
                         } catch (Exception e) {
-                            logger.error("Virtual Thread with agent failed: {}", e.getMessage());
+                            logger.error("Virtual Thread with agent failed: {}\", e.getMessage());
                         }
                     });
                 })
-                .doOnError(error -> logger.error("Orchestration failed: {}", error.getMessage()))
+                .doOnError(error -> logger.error("Orchestration failed: {}\", error.getMessage()))
                 .subscribe();
 
     }
@@ -75,7 +82,7 @@ public class BetoBotOrchestrator {
             if (toolCall.isPresent()) {
                 executeToolAndAddToHistory(toolCall.get(), history);
             } else {
-                logger.info("---Answer: {}", extractText(modelResponse));
+                logger.info("---Answer: {}\", extractText(modelResponse));
                 finished = true;
             }
         }
@@ -87,7 +94,7 @@ public class BetoBotOrchestrator {
             String name = call.name().get();
             Map<String, Object> args = call.args().orElse(Collections.emptyMap());
 
-            logger.info(" >>> Using mcp-tool: {}", name);
+            logger.info(" >>> Using mcp-tool: {}\", name);
 
             McpSchema.CallToolResult result = githubMcpClientImpl.callTool(
                     new McpSchema.CallToolRequest(name, args)).block();
@@ -105,7 +112,7 @@ public class BetoBotOrchestrator {
                                 .functionResponse(FunctionResponse
                                         .builder()
                                         .name(name)
-                                        .response(Map.of("result",toolOutput))
+                                        .response(Map.of("result\",toolOutput))
                                         .build())
                                 .build()))
                         .build()
@@ -117,11 +124,11 @@ public class BetoBotOrchestrator {
 
     /* <<< Helper methods >>> */
 
-    private static @NonNull String buildPrompt(GithubIssue issue) {
-        return String.format("""
+    private @NonNull String buildPrompt(GithubIssue issue) {
+        return String.format(""""
                 System context:
-                Repository owner: SilverSurferState
-                Repository name: beto-bot
+                Repository owner: %s
+                Repository name: %s
                 you must always provide these owner and repo values when calling tools
                 
                 Task:
@@ -137,7 +144,7 @@ public class BetoBotOrchestrator {
                 4. Use 'push_files' to commit your changes and to that branch you just created
                 5. Finish by using 'create_pull_request' to create a new pull request and
                 summarizing what you changed in the 'body' section of the 'create_pull_request' function.
-                """, issue.title(), issue.body(), issue.number());
+                """", repoOwner, repoName, issue.title(), issue.body(), issue.number());
     }
 
     private Content buildMessage(String text) {
