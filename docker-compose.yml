@@ -1,0 +1,26 @@
+services:
+  github-mcp:
+    image: node:20
+    container_name: github-mcp-proxy
+    environment:
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+    # We add --host 0.0.0.0 to ensure the proxy accepts external connections from Java
+    command: >
+      npx -y supergateway 
+      --stdio "npx -y @modelcontextprotocol/server-github" 
+      --port 3000 
+      --host 0.0.0.0
+      --ssePath /sse
+    ports:
+      - "9090:3000"
+    restart: always
+
+
+  beto-bot:
+    build: .
+    depends_on:
+      - github-mcp
+    environment:
+      # Note: Inside the Docker network, use the service name 'github-mcp'
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - SPRING_AI_MCP_CLIENT_SSE_CONNECTIONS_GITHUB_URL=http://github-mcp:8080/sse

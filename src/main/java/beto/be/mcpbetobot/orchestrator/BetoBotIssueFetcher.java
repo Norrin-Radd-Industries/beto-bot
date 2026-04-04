@@ -1,9 +1,9 @@
 package beto.be.mcpbetobot.orchestrator;
 
 import beto.be.mcpbetobot.events.GithubIssueEvent;
-import beto.be.mcpbetobot.messages.response.GithubIssue;
-import beto.be.mcpbetobot.process.github.McpClient;
 import beto.be.mcpbetobot.util.Parser;
+import io.modelcontextprotocol.client.McpAsyncClient;
+import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * A scheduler to run a fetch every 30 min for issues on a specific github repo
@@ -22,30 +21,32 @@ import java.util.concurrent.CompletableFuture;
 public class BetoBotIssueFetcher {
 
     private final Logger logger = LoggerFactory.getLogger(BetoBotIssueFetcher.class);
-    private final McpClient githubClient;
+    private final McpAsyncClient githubMcpClientImpl;
     private final ApplicationEventPublisher applicationEventPublisher;
 
-    public BetoBotIssueFetcher(McpClient githubClient, ApplicationEventPublisher applicationEventPublisher) {
-        this.githubClient = githubClient;
+    public BetoBotIssueFetcher(List<McpAsyncClient> customMcpAsyncClientList,
+                               ApplicationEventPublisher applicationEventPublisher) {
+        this.githubMcpClientImpl = customMcpAsyncClientList.getFirst();
         this.applicationEventPublisher = applicationEventPublisher;
     }
-    //TODO make it more generic instead of limiting it one repo
-    @Scheduled(fixedRate = 18000000, initialDelay = 5000)
+
+    @Scheduled(fixedRate = 18000000, initialDelay = 5000) // 30 min, delay 5s
     public void checkForAvailableWork() {
         logger.info(" --Checking for available work-- ");
-        githubClient.callTool("list_issues", Map.of("owner", "SilverSurferState",
+        githubMcpClientImpl.callTool(new McpSchema.CallToolRequest("list_issues",
+                Map.of("owner", "SilverSurferState",
                         "repo", "beto-bot",
-                        "state", "open"))
-                .thenAccept(issues -> {
-                    List<GithubIssue> newIssues = Parser.parseIssues(issues);
-                    logger.info(issues);
-                // send an event to the coder tool when new issues are found
-                    newIssues.forEach(issue -> {
-                        applicationEventPublisher.publishEvent(new GithubIssueEvent("Fetcher", issue));
-                    });
-                }).exceptionally(e -> {
-                    logger.error("Error occurred while fetching issues: {}", e.getMessage());
-                    return null;
-                });
+                        "state", "open")))
+                .flatMapIterable(result -> {
+                    String json = result.content().stream()
+                            .filter(content -> content instanceof McpSchema.TextContent)
+                            .map(content -> (((McpSchema.TextContent) content).text()))
+                            .findFirst()
+                            .orElse("");
+                    return Parser.parseIssues(json);
+                }).doOnNext(issue ->
+                        applicationEventPublisher.publishEvent(
+                                new GithubIssueEvent(this, issue)))
+                .subscribe();
     }
 }
