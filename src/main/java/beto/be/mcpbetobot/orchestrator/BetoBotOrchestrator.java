@@ -54,7 +54,6 @@ public class BetoBotOrchestrator {
                 })
                 .doOnError(error -> logger.error("Orchestration failed: {}", error.getMessage()))
                 .subscribe();
-
     }
 
 

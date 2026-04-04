@@ -21,6 +21,5 @@ services:
     depends_on:
       - github-mcp
     environment:
-      # Note: Inside the Docker network, use the service name 'github-mcp'
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - SPRING_AI_MCP_CLIENT_SSE_CONNECTIONS_GITHUB_URL=http://github-mcp:8080/sse
