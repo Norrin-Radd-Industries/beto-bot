@@ -89,29 +89,37 @@ public class BetoBotOrchestrator {
 
             logger.info(" >>> Using mcp-tool: {}", name);
 
-            McpSchema.CallToolResult result = githubMcpClientImpl.callTool(
-                    new McpSchema.CallToolRequest(name, args)).block();
-            if (result != null) {
-                String toolOutput = result.content().stream()
-                        .map(content -> {
-                            if (content instanceof McpSchema.TextContent textContent) {
-                                return textContent.text();
-                            }
-                            return content.toString();
-                        })
-                        .collect(Collectors.joining("\n"));
-                history.add(Content.builder().role("function")
-                        .parts(List.of(Part.builder()
-                                .functionResponse(FunctionResponse
-                                        .builder()
-                                        .name(name)
-                                        .response(Map.of("result",toolOutput))
-                                        .build())
-                                .build()))
-                        .build()
-                );
+            try {
+                McpSchema.CallToolResult result = githubMcpClientImpl.callTool(
+                        new McpSchema.CallToolRequest(name, args)).block();
+                if (result != null) {
+                    String toolOutput = result.content().stream()
+                            .map(content ->
+                                    (content instanceof McpSchema.TextContent textContent) ? textContent.text()
+                                            : content.toString())
+                            .collect(Collectors.joining("\n"));
+                    // new method to add feed back the response of a tool output
+                    // eg: this will feed an error while calling a tool back into the agent so he can handle it
+                    addFunctionResponseToHistory(history, name, toolOutput);
+                }
+            } catch (Exception e) {
+                logger.warn("Tool {} failed with error: {}. Handing result back to agent",  name, e.getMessage());
+                String error = "Error occurred: " + e.getMessage() + ", adjust your parameters to mitigate";
+                addFunctionResponseToHistory(history, name, error);
             }
         }
+    }
+
+
+    private void addFunctionResponseToHistory(List<Content> history, String name, String output) {
+        history.add(Content.builder().role("function")
+                .parts(List.of(Part.builder()
+                        .functionResponse(FunctionResponse.builder()
+                                .name(name)
+                                .response(Map.of("result", output))
+                                .build())
+                        .build()))
+                .build());
     }
 
 
@@ -135,7 +143,8 @@ public class BetoBotOrchestrator {
                 2. Once you understand the project, implement or fix the issue
                 3. Create a new branch named 'feature/issue-%d'
                 4. Use 'push_files' to commit your changes and to that branch you just created
-                5. Finish by using 'create_pull_request' to create a new pull request and
+                5. Add the label 'beto-bot:in-progress' to the issue you've processed.
+                6. Finish by using 'create_pull_request' to create a new pull request and
                 summarizing what you changed in the 'body' section of the 'create_pull_request' function.
                 """, issue.title(), issue.body(), issue.number());
     }

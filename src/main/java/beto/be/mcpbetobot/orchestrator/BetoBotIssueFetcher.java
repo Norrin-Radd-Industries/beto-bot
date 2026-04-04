@@ -36,7 +36,8 @@ public class BetoBotIssueFetcher {
         githubMcpClientImpl.callTool(new McpSchema.CallToolRequest("list_issues",
                 Map.of("owner", "SilverSurferState",
                         "repo", "beto-bot",
-                        "state", "open")))
+                        "state", "open",
+                        "labels", List.of())))
                 .flatMapIterable(result -> {
                     String json = result.content().stream()
                             .filter(content -> content instanceof McpSchema.TextContent)
