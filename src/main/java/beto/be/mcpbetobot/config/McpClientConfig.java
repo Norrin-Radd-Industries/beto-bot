@@ -14,9 +14,9 @@ import java.time.Duration;
 import java.util.List;
 
 @Configuration
-public class McpConfig {
+public class McpClientConfig {
 
-    private final Logger logger = LoggerFactory.getLogger(McpConfig.class);
+    private final Logger logger = LoggerFactory.getLogger(McpClientConfig.class);
 
     @Bean
     @Primary

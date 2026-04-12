@@ -1,0 +1,109 @@
+package beto.be.mcpbetobot.orchestrator;
+
+import beto.be.mcpbetobot.domain.GithubTask;
+import beto.be.mcpbetobot.events.GitHubTaskEvent;
+import beto.be.mcpbetobot.util.GithubParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * A scheduler to run a fetch every 30 min for issues on a specific GitHub project
+ * This doesn't leverage any LLM, so it's cheap in that sense
+ */
+@Service
+public class BetoBotTaskFetcher {
+
+    @Value("${GITHUB_PERSONAL_ACCESS_TOKEN}")
+    private String apiKey;
+
+    @Value("${GITHUB_PROJECT_ID}")
+    private String projectId;
+
+    private final RestClient restClient;
+    private final Logger logger = LoggerFactory.getLogger(BetoBotTaskFetcher.class);
+    private final ApplicationEventPublisher applicationEventPublisher;
+
+    public BetoBotTaskFetcher(ApplicationEventPublisher applicationEventPublisher) {
+        this.restClient = RestClient.create();
+        this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+    @Scheduled(fixedRate = 18000000, initialDelay = 5000) // 30 min, delay 5s
+    public void checkForAvailableWork() {
+        logger.info(" --Checking for available work-- ");
+        // get all available tasks in the project setup
+        String availableTasks = getGithubTasks();
+        // convert them to githubTasks with types
+        List<GithubTask> githubTasks = GithubParser.parseTasksFromProject(availableTasks);
+        // send events
+        githubTasks.forEach(task -> publishEvent(task, task.type()));
+    }
+
+    private void publishEvent(GithubTask task, String type){
+        applicationEventPublisher.publishEvent(new GitHubTaskEvent(this, task, type));
+    }
+
+    // custom graphql GitHub project task fetcher
+    private String getGithubTasks(){
+        Map<String, String> body = Map.of(
+                "query",
+                """
+                {
+                  node(id: "%s") {
+                    ... on ProjectV2 {
+                      title
+                      items(first: 20) {
+                        nodes {
+                          id
+                          fieldValues(first: 10) {
+                            nodes {
+                              ... on ProjectV2ItemFieldSingleSelectValue {
+                                name
+                                field {
+                                  ... on ProjectV2SingleSelectField {
+                                    name
+                                  }
+                                }
+                              }
+                            }
+                          }
+                          content {
+                            ... on Issue {
+                              id
+                              number
+                              title
+                              state
+                              body
+                              repository {
+                                name
+                                owner {
+                                  login
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """.formatted(projectId));
+
+        return restClient.post()
+                .uri("https://api.github.com/graphql")
+                .header("Authorization", "bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .body(body)
+                .retrieve()
+                .body(String.class);
+    }
+
+}
