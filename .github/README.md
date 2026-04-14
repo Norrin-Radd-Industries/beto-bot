@@ -31,13 +31,48 @@ Minor Improvements:
 
 
 ## TL;DR
-To get started just put your (currently) Gemini api key and your Github PAT in a environment variable.
+To get started:
 
-TODO: dynamic repo injection
+- create a new token for your account : generate a classic token with the following rights:
+	- repo
+   	- read: user
+   	- projects
 
+ ideally, you can setup a second account and make it a collab on your repo's,
+ give it rights to your project and generate the token there
+
+- Were using projects as our source of tasks so set up a Github project
+In the url of Github you'll see a number at the end for your project eg: 
+
+https://github.com/users/<yourusername>/projects/**5**
+
+That's your project number.
+To get your project ID, we'll need it.
+Execute the following:
+
+Replace YOUR_TOKEN, YOUR_USERNAME, and PROJECT_NUMBER with your actual data.
+
+```Bash
+curl --request POST \
+  --url https://api.github.com/graphql \
+  --header 'Authorization: Bearer YOUR_TOKEN' \
+  --data '{"query":"query{user(login: \"YOUR_USERNAME\") {projectV2(number: PROJECT_NUMBER){id title}}}"}'
 ```
-GITHUB_PERSONAL_ACCESS_TOKEN=<your github api key>
-GOOGLE_API_KEY=<your gemini api key>
+
+If you have several projects and aren't sure which number is which, you can run this command to list the first 20 projects associated with your account:
+
+```Bash
+curl --request POST \
+  --url https://api.github.com/graphql \
+  --header 'Authorization: Bearer YOUR_TOKEN' \
+  --data '{"query":"{user(login: \"YOUR_USERNAME\") {projectsV2(first: 20) {nodes {id nu
+```
+
+create an .env and add the following
+```
+GOOGLE_API_KEY=${GOOGLE_API_KEY}
+GITHUB_PROJECT_ID=${GITHUB_PROJECT_ID}
+GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
 ```
 
 You can then run the docker-compose file to build both the MCP server and the application.
