@@ -51,7 +51,7 @@ public class McpClientConfig {
     // ToolCallbackProvider find all tools automagically :-0
     @Bean
     public ChatClient coderChatClient(ChatClient.Builder builder,
-                                      @Value("${agent.model.coder}") String model,
+                                      @Value("${AGENT_MODEL_ANALYST}") String model,
                                       ToolCallbackProvider mcpToolProvider) {
         return builder
                 .defaultOptions(ChatOptions.builder()
@@ -63,7 +63,7 @@ public class McpClientConfig {
 
     @Bean
     public ChatClient analystChatClient(ChatClient.Builder builder,
-                                      @Value("${agent.model.analyst}") String model,
+                                      @Value("${AGENT_MODEL_CODER}") String model,
                                       ToolCallbackProvider mcpToolProvider) {
         return builder
                 .defaultOptions(ChatOptions.builder()
