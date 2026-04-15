@@ -6,6 +6,24 @@ This project is a custom Multi-Agent Orchestrator built in Java (Spring Boot). I
 
 
 ```angular2html
+Update 15/4/2026
+
+Latest changelog
+Major improvements:
+- We're now running the 'spring-ai-starter-model-google-genai' dependency
+- Using spring AI's standard mcpAsyncClient instead of our manually configured one
+- Using ChatClient instead of google gen ai's Client to connect to the model
+This moves the codebase in a more model-agnostic direction
+With this move comes some refactoring because spring likes to hide a lot under the hood..
+-Removed some (now) redundant code like the customMcpParser since Spring's ToolCallbackProvider takes care of most of that.
+-Had to add a custom ToolCallbackProvider because of a known issue with Google Gen Ai and a response not in JSON
+-Removed the McpClientConfig since were using spring's autoconfigured 
+
+Minor improvements:
+Github Repo owner is now fetched through the fetcher and fed to the agents through the taskParser
+```
+
+```angular2html
 Update 12/4/2026
 
 Latest changelog: 
@@ -129,7 +147,7 @@ The system consists of 5 main components:
 ---
 ## 🧰 The MCP Client (SSE - STDIO)
 
-  
+
 The McpClient is an McpAsyncClient that uses SSE to connect to a proxy running the MCP server.
 It uses java's HttpClient with a SSE implementation of the MCP.io McpTransport.
 
@@ -149,6 +167,8 @@ _This transport implementation establishes a bidirectional communication channel
 I added a block here to have the context halt initialization before the mcp connection has been fully made with a max duration of 30 seconds.
 
 The MCPClient is configured in the McpConfig file.
+
+#### Updated on 15/4/2026 : removed in favor or Spring's autoconfigured AsyncMcpClient
 
 ```java
 @Configuration  
@@ -219,7 +239,16 @@ source: https://ai.google.dev/gemini-api/docs/quickstart#java
 
 This calls for a dependency to be added: 
 
+#### Updated on 15/4/2026 : replaced by spring-ai-starter-model-google-genai
+
 ```java
+<dependency>
+	<groupId>org.springframework.ai</groupId>
+	<artifactId>spring-ai-starter-model-google-genai</artifactId>
+</dependency>
+```
+**DEPRECATED**
+```
   <dependency>
     <groupId>com.google.genai</groupId>
     <artifactId>google-genai</artifactId>
@@ -235,6 +264,8 @@ For our needs, we also needed to hand the agent a bunch of tools, namely the Git
 So instead of a simple 'ask', that became an askWithTools:
 
 #### Updated on 12/4/2026 : now an abstract class
+#### Updated on 15/4/2026 : large refactor after moving to spring starter google gen ai, see below for newer version
+
 ```java 
 public abstract class Agent {
 
@@ -291,12 +322,59 @@ public abstract class Agent {
 	}
 ```
 
+Instead of creating a while feedback loop ourselves, spring takes care of this for us now :
+
+```java
+package beto.be.mcpbetobot.agentic;
+
+import beto.be.mcpbetobot.domain.GithubTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
+
+public abstract class Agent {
+
+    private final Logger logger = LoggerFactory.getLogger(Agent.class);
+    private final ChatClient client;
+
+    public Agent(ChatClient client){
+        this.client = client;
+    }
+
+    public void start(GithubTask task) {
+        String finalResponse = client.prompt()
+                .system(promptSpec -> promptSpec.text(buildPrompt(task)))
+                .user("execute the task and confirm when finished")
+                .call()
+                .content();
+
+        logger.info("---Answer: {}", finalResponse);
+    }
+
+    abstract String buildPrompt(GithubTask task);
+}
+```
+
+The agents stay pretty much the same just the constructor is a bit different now : 
+
+```java 
+public AnalystAgent(ChatClient analystChatClient) {
+        super(analystChatClient);
+    }
+
+public CodingAgent(ChatClient coderChatClient) {
+	super(coderChatClient);
+}
+
+```
+
+
 We now have 2 sub agents that extend our abstract Agent, keeping them simple and clean with just a prompt
 
 ```java
 @Component
 public class CodingAgent extends Agent {
-
+	
     public CodingAgent(List<McpAsyncClient> customMcpAsyncClientList,
                        ProjectService projectService) {
         super(new Client(),
@@ -490,6 +568,19 @@ it also enables us to handle multiple issues at the same time, since virtual thr
 
 
 #### updated on 12/4/2026
+#### Updated on 15/4/2026 : removal of githubMcpClientImpl
+
+```java
+@EventListener
+    public void processEvent(GitHubTaskEvent taskEvent){
+        GithubTask task = taskEvent.getGithubTask();
+        if (task.type().equals("ANALYSIS")) {
+            runAgent(task, analystAgent);
+        } else if (task.type().equals("CODER")) {
+            runAgent(task, codingAgent);
+        }
+    }
+```
 
 Now able to hand off to either the coding agent or analyst agent
 it also groups both tools from the github mcp toollist and our custom mcp service tools 

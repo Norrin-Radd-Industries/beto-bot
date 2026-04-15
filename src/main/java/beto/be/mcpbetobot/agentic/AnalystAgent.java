@@ -34,7 +34,12 @@ public class AnalystAgent extends Agent{
             6. Reply with a short summary of what you analysed and what you recommended
     
             Important: always complete all 6 steps before replying.
-            """, task.repositoryOwner(), task.repository(), task.number(), task.title(), task.body(),
-                task.number(), task.itemId());
+            """,task.repositoryOwner(),
+                task.repository(),
+                task.number(),
+                task.title(),
+                task.body(),
+                task.number(),
+                task.itemId());
     }
 }

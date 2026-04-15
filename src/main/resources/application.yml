@@ -10,8 +10,6 @@ spring:
       genai:
         api-key: ${GOOGLE_API_KEY}
     mcp:
-      server:
-        protocol: STREAMABLE
       client:
         type: ASYNC
         enabled: true
