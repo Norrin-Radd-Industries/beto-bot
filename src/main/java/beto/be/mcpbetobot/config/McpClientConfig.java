@@ -5,6 +5,10 @@ import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -25,7 +29,6 @@ public class McpClientConfig {
 
         var transport = HttpClientSseClientTransport.builder(mcpUrl)
                 .build();
-
         var client = McpClient.async(transport)
                 .requestTimeout(Duration.ofMinutes(5)).build();
         try {
@@ -43,5 +46,30 @@ public class McpClientConfig {
     @Bean
     public List<McpAsyncClient> customMcpAsyncClientList(McpAsyncClient githubMcpClient) {
         return List.of(githubMcpClient);
+    }
+
+    // ToolCallbackProvider find all tools automagically :-0
+    @Bean
+    public ChatClient coderChatClient(ChatClient.Builder builder,
+                                      @Value("${agent.model.coder}") String model,
+                                      ToolCallbackProvider mcpToolProvider) {
+        return builder
+                .defaultOptions(ChatOptions.builder()
+                        .model(model)
+                        .build())
+                .defaultToolCallbacks(mcpToolProvider)
+                .build();
+    }
+
+    @Bean
+    public ChatClient analystChatClient(ChatClient.Builder builder,
+                                      @Value("${agent.model.analyst}") String model,
+                                      ToolCallbackProvider mcpToolProvider) {
+        return builder
+                .defaultOptions(ChatOptions.builder()
+                        .model(model)
+                        .build())
+                .defaultToolCallbacks(mcpToolProvider)
+                .build();
     }
 }

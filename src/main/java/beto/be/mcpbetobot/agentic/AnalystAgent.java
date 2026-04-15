@@ -1,22 +1,14 @@
 package beto.be.mcpbetobot.agentic;
 
 import beto.be.mcpbetobot.domain.GithubTask;
-import beto.be.mcpbetobot.mcp.ProjectService;
-import com.google.genai.Client;
-import io.modelcontextprotocol.client.McpAsyncClient;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 @Component
 public class AnalystAgent extends Agent{
 
-    public AnalystAgent(List<McpAsyncClient> customMcpAsyncClientList,
-                        ProjectService projectService) {
-        super(new Client(),
-                "gemini-3.1-pro-preview",
-                customMcpAsyncClientList,
-                projectService);
+    public AnalystAgent(ChatClient analystChatClient) {
+        super(analystChatClient);
     }
 
     @Override

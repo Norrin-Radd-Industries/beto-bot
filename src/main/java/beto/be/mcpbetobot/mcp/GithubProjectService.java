@@ -12,9 +12,9 @@ import org.springframework.web.client.RestClient;
 import java.util.Map;
 
 @Service
-public class ProjectService {
+public class GithubProjectService {
 
-    Logger logger = LoggerFactory.getLogger(ProjectService.class);
+    Logger logger = LoggerFactory.getLogger(GithubProjectService.class);
 
     @Value("${GITHUB_PERSONAL_ACCESS_TOKEN}")
     private String apiKey;
@@ -33,7 +33,7 @@ public class ProjectService {
 
     private final RestClient restClient;
 
-    public ProjectService() {
+    public GithubProjectService() {
         this.restClient = RestClient.create();
     }
 
@@ -80,4 +80,6 @@ public class ProjectService {
                 .retrieve()
                 .body(String.class);
     }
+
+
 }
