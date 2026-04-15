@@ -38,14 +38,14 @@ public class ProjectService {
     }
 
     @McpTool(description = "Move a GitHub project issue to the Analysed column once analysis is complete")
-    public String moveTaskToAnalysed(@McpToolParam(description = "The issue ID") String itemId) {
+    public String moveTaskToAnalysed(@McpToolParam(description = "The item ID") String itemId) {
         String result = updateItemStatus(itemId, STATUS_ANALYSED);
         logger.info("move result: {}", result);
         return result;
     }
 
-    @McpTool(description = "Move a GitHub project issue to In Progress when the coder starts working on it")
-    public String moveTaskToInProgress(@ToolParam(description = "The issue ID") String itemId) {
+    @McpTool(description = "Move a GitHub project issue to In Progress when the coder is done working on it")
+    public String moveTaskToInProgress(@ToolParam(description = "The item ID") String itemId) {
         return updateItemStatus(itemId, STATUS_IN_PROGRESS);
     }
 

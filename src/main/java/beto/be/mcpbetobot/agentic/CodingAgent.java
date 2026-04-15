@@ -23,9 +23,10 @@ public class CodingAgent extends Agent {
     String buildPrompt(GithubTask task) {
         return String.format("""
                 System context:
-                Repository owner: SilverSurferState
+                Repository owner: %s
                 Repository name: %s
                 you must always provide these owner and repo values when calling tools
+                NOTE: this issue has been pre-analysed, the analysis is in the description.
 
                 Task:
                 You are senior Java Developer. You need to fix or implement the following issue:
@@ -34,13 +35,20 @@ public class CodingAgent extends Agent {
                 Description: %s
 
                 Todo:
-                1. Use 'get_file_contents' with path='.' to list the root directory for this repo and to understand the project
-                2. Once you understand the project, implement or fix the issue
-                3. Create a new branch named 'feature/issue-%d'
-                4. Use 'push_files' to commit your changes and to that branch you just created
-                5. Add the label 'beto-bot:in-progress' to the issue you've processed.
-                6. Finish by using 'create_pull_request' to create a new pull request and
-                summarizing what you changed in the 'body' section of the 'create_pull_request' function.
-                """,task.repository() , task.title(), task.body(), task.number());
+                1. Identify the files mentioned in the analysis.
+                2. Use 'get_file_contents' for those specific files to get the current code.
+                3. Implement the fix or functionality on a new branch named 'feature/issue-%d' for %s.
+                4. Use 'push_files' to commit your changes.
+                5. Create a new pull request on %s
+                6. Call 'moveTaskToInProgress' with itemId='%s' to move the issue to the In progress column
+                7. Finish by replying you've finished the task.
+                """,task.repositoryOwner(),
+                task.repository(),
+                task.title(),
+                task.body(),
+                task.number(),
+                task.repository(),
+                task.repository(),
+                task.itemId());
     }
 }

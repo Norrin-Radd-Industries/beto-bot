@@ -8,6 +8,7 @@ public record GithubTask(
         String body,
         String state,
         String repository,
+        String repositoryOwner,
         String type
 ) {
 }

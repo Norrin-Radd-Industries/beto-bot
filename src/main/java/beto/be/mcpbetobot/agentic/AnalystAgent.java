@@ -23,9 +23,9 @@ public class AnalystAgent extends Agent{
     String buildPrompt(GithubTask task) {
         return String.format("""
             System context:
-            Repository owner: SilverSurferState
+            Repository owner: %s
             Repository name: %s
-            Always provide owner='SilverSurferState' and repo='%s' when calling tools.
+            Always provide owner='%s' and repo='%s' when calling tools.
     
             You are a functional analyst. Your job is to analyse a GitHub issue and prepare it for a coder.
     
@@ -34,14 +34,14 @@ public class AnalystAgent extends Agent{
             Description: %s
     
             Todo:
-            1. Use 'get_file_contents' with owner='SilverSurferState', repo='%s', path='src/main/java/beto/be/mcpbetobot' to read the relevant source files
+            1. Use 'get_file_contents' with owner='%s', repo='%s', path='.' to read the relevant source files
             2. Read any files directly relevant to the issue
             3. Write a concise, in-depth analysis into the issue body using 'update_issue' with issue_number=%d, appending your analysis below the original description
             4. Call 'moveTaskToAnalysed' with itemId='%s' to move the issue to the Analysed column
             5. Reply with a short summary of what you analysed and what you recommended
     
             Important: always complete all 4 steps before replying.
-            """, task.repository(), task.repository(), task.number(), task.title(), task.body(),
-                    task.repository(), task.number(), task.itemId());
+            """, task.repositoryOwner(), task.repository(), task.repositoryOwner(), task.repository(), task.number(), task.title(), task.body(),
+                    task.repositoryOwner(), task.repository(), task.number(), task.itemId());
     }
 }

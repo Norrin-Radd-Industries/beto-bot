@@ -39,6 +39,7 @@ public class GithubParser {
                         taskNode.get("body").asText(),
                         taskNode.get("state").asText(),
                         taskNode.get("repository").get("name").asText(),
+                        taskNode.get("repository").get("owner").get("login").asText(),
                         type
                         );
             }

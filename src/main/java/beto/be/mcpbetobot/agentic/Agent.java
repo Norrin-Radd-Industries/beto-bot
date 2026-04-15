@@ -8,6 +8,7 @@ import io.modelcontextprotocol.client.McpAsyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,6 +20,8 @@ public abstract class Agent {
     private final String model;
     private final McpAsyncClient gitHubMcpClient;
     private final ProjectService projectService;
+    @Value("${GITHUB_OWNER}")
+    protected String githubOwner;
 
     public Agent(Client client, String model,
                  List<McpAsyncClient> customMcpAsyncClientList,
