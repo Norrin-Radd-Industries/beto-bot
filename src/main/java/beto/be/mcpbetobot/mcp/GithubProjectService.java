@@ -2,8 +2,7 @@ package beto.be.mcpbetobot.mcp;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springaicommunity.mcp.annotation.McpTool;
-import org.springaicommunity.mcp.annotation.McpToolParam;
+import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -37,14 +36,14 @@ public class GithubProjectService {
         this.restClient = RestClient.create();
     }
 
-    @McpTool(description = "Move a GitHub project issue to the Analysed column once analysis is complete")
-    public String moveTaskToAnalysed(@McpToolParam(description = "The item ID") String itemId) {
+    @Tool(description = "Move a GitHub project issue to the Analysed column once analysis is complete")
+    public String moveTaskToAnalysed(@ToolParam(description = "The item ID") String itemId) {
         String result = updateItemStatus(itemId, STATUS_ANALYSED);
         logger.info("move result: {}", result);
         return result;
     }
 
-    @McpTool(description = "Move a GitHub project issue to In Progress when the coder is done working on it")
+    @Tool(description = "Move a GitHub project issue to In Progress when the coder is done working on it")
     public String moveTaskToInProgress(@ToolParam(description = "The item ID") String itemId) {
         return updateItemStatus(itemId, STATUS_IN_PROGRESS);
     }

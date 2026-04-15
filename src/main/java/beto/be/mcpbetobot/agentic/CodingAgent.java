@@ -15,8 +15,8 @@ public class CodingAgent extends Agent {
     String buildPrompt(GithubTask task) {
         return String.format("""
                 System context:
-                Repository owner: %s
-                Repository name: %s
+                Owner: %s
+                Repo: %s
                 you must always provide these owner and repo values when calling tools
                 NOTE: this issue has been pre-analysed, the analysis is in the description.
 
@@ -27,7 +27,7 @@ public class CodingAgent extends Agent {
                 Description: %s
 
                 Todo:
-                1. Identify the files mentioned in the analysis.
+                1. Identify the files mentioned in the analysis using 'get_repository_tree'
                 2. Use 'get_file_contents' for those specific files to get the current code.
                 3. Implement the fix or functionality on a new branch named 'feature/issue-%d' for %s.
                 4. Use 'push_files' to commit your changes.
