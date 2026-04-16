@@ -17,7 +17,6 @@ spring:
           connections:
             github:
               url: http://host.docker.internal:9090
-              sse-endpoint: /sse
 
 
 logging:

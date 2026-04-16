@@ -1,13 +1,21 @@
 package beto.be.mcpbetobot.mcp;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -21,16 +29,21 @@ public class GithubProjectService {
     @Value("${GITHUB_PROJECT_ID}")
     private String projectId;
 
-    // github id's for the statuses in the project (represents a column) only using 2 atm
-    private static final String STATUS_FIELD_ID = "PVTSSF_lAHOBGwfss4BUU8fzhBd48A";
-    private static final String STATUS_BACKLOG = "f75ad846";
-    private static final String STATUS_ANALYSED = "cf8dd98e";
-    private static final String STATUS_TODO = "61e4505c";
-    private static final String STATUS_IN_PROGRESS = "47fc9ee4";
-    private static final String STATUS_IN_REVIEW = "df73e18b";
-    private static final String STATUS_DONE = "98236657";
+    @Value("classpath:graphql/fetch-columns-from-projects.graphql")
+    private Resource queryResource;
+
+    @Value("classpath:graphql/move-item-status.graphql")
+    private Resource updateStatusResource;
 
     private final RestClient restClient;
+
+    private final Map<String, String> columns = new HashMap<>();
+    private String statusFieldId;
+
+    @PostConstruct
+    private void getColumnFields() {
+        fetchAndInjectColumnFields();
+    }
 
     public GithubProjectService() {
         this.restClient = RestClient.create();
@@ -39,7 +52,7 @@ public class GithubProjectService {
     @SuppressWarnings("unused")
     @Tool(description = "Move a GitHub project issue to the Analysed column once analysis is complete")
     public String moveTaskToAnalysed(@ToolParam(description = "The item ID") String itemId) {
-        String result = updateItemStatus(itemId, STATUS_ANALYSED);
+        String result = updateItemStatus(itemId, columns.get("Analysed"));
         logger.info("move result: {}", result);
         return result;
     }
@@ -47,40 +60,66 @@ public class GithubProjectService {
     @SuppressWarnings("unused")
     @Tool(description = "Move a GitHub project issue to In Progress when the coder is done working on it")
     public String moveTaskToInProgress(@ToolParam(description = "The item ID") String itemId) {
-        return updateItemStatus(itemId, STATUS_IN_PROGRESS);
+        return updateItemStatus(itemId, columns.get("Todo"));
     }
 
     private String updateItemStatus(String itemId, String statusOptionId) {
-        Map<String, String> body = Map.of(
-                "query",
-                """
-                mutation {
-                  updateProjectV2ItemFieldValue(
-                    input: {
-                      projectId: "%s"
-                      itemId: "%s"
-                      fieldId: "%s"
-                      value: {
-                        singleSelectOptionId: "%s"
-                      }
-                    }
-                  ) {
-                    projectV2Item {
-                      id
-                    }
-                  }
-                }
-                """.formatted(projectId, itemId, STATUS_FIELD_ID, statusOptionId)
-        );
+        try {
+            String query = StreamUtils.copyToString(updateStatusResource.getInputStream(), StandardCharsets.UTF_8);
+            Map<String, Object> requestBody = Map.of(
+                    "query", query,
+                    "variables", Map.of(
+                            "projectId", projectId,
+                            "itemId", itemId,
+                            "fieldId", statusFieldId,
+                            "optionId", statusOptionId
+                    )
+            );
+            return gitHubGraphqlCall(requestBody);
+        } catch (IOException e) {
+            logger.error("Failure reading GraphQL file", e);
+            throw new RuntimeException(e);
+        }
+    }
 
+    // method to fetch the columns in the project and map them
+    private void fetchAndInjectColumnFields() {
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            Map<String, Object> requestBody = Map.of(
+                    "query", getQuery(),
+                    "variables", Map.of("projectId", projectId)
+            );
+            String response = gitHubGraphqlCall(requestBody);
+            JsonNode root = mapper.readTree(response);
+            JsonNode nodes = root.path("data").path("node").path("fields").path("nodes");
+
+            for (JsonNode field : nodes) {
+                if ("Status".equals(field.path("name").asText())) {
+                    this.statusFieldId = field.path("id").asText();
+                    field.path("options").forEach(option ->
+                            columns.put(option.get("name").asText(), option.get("id").asText())
+                    );
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Failed to fetch GitHub Project columns: {}", e.getMessage(), e);
+        }
+    }
+
+    private String gitHubGraphqlCall(Map<String, Object> requestBody) {
         return restClient.post()
                 .uri("https://api.github.com/graphql")
                 .header("Authorization", "bearer " + apiKey)
                 .header("Content-Type", "application/json")
-                .body(body)
+                .body(requestBody)
                 .retrieve()
                 .body(String.class);
     }
 
+    private String getQuery() throws IOException {
+        return StreamUtils.copyToString(queryResource.getInputStream(), StandardCharsets.UTF_8);
+    }
 
 }
