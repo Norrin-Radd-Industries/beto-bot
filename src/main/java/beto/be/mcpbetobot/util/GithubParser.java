@@ -53,30 +53,31 @@ public class GithubParser {
     public static List<GithubTask> parseTasksFromProject(String jsonResponse) {
         try {
             JsonNode root = mapper.readTree(jsonResponse);
-            JsonNode tasks = root.get("data").get("node").get("items").get("nodes");
+            JsonNode tasks = root.at("/data/node/items/nodes");
+
+            if (tasks.isMissingNode() || !tasks.isArray()) {
+                return Collections.emptyList();
+            }
+
             List<GithubTask> parsedTasks = new ArrayList<>();
             for (JsonNode task : tasks) {
-                JsonNode fieldValueNode = task.get("fieldValues").get("nodes");
-                if (fieldValueNode != null && fieldValueNode.isArray()) {
-                    for (JsonNode node : fieldValueNode) {
-                        if (!node.isEmpty()){
-                            switch(node.get("name").asText()) {
-                                case "Backlog" :
-                                    parsedTasks.add(parseTaskFromJsonNode(task, "ANALYSIS"));
-                                    break;
-                                case "Todo" :
-                                    parsedTasks.add(parseTaskFromJsonNode(task, "CODER"));
-                                    break;
-                            }
-                        }
-                        }
+                JsonNode fieldValueNodes = task.at("/fieldValues/nodes");
+                    for (JsonNode node : fieldValueNodes) {
+                    switch(node.path("name").asText()) {
+                        case "Backlog" :
+                            parsedTasks.add(parseTaskFromJsonNode(task, "ANALYSIS"));
+                            break;
+                        case "Todo" :
+                            parsedTasks.add(parseTaskFromJsonNode(task, "CODER"));
+                            break;
                     }
                 }
+            }
             return parsedTasks;
         } catch (Exception e) {
             logger.error("error parsing tasks from project: {}", e.getMessage());
+            return Collections.emptyList();
         }
-        return Collections.emptyList();
     }
 
     public static String getQuery(Resource querySource) throws IOException {

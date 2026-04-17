@@ -91,7 +91,7 @@ public class GithubProjectService {
             );
             String response = gitHubGraphqlCall(requestBody);
             JsonNode root = mapper.readTree(response);
-            JsonNode nodes = root.path("data").path("node").path("fields").path("nodes");
+            JsonNode nodes = root.at("/data/node/fields/nodes");
 
             for (JsonNode field : nodes) {
                 if ("Status".equals(field.path("name").asText())) {
