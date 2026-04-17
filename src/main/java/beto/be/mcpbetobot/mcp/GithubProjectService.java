@@ -10,13 +10,13 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+
+import static beto.be.mcpbetobot.util.GithubParser.getQuery;
 
 @Service
 public class GithubProjectService {
@@ -30,10 +30,10 @@ public class GithubProjectService {
     private String projectId;
 
     @Value("classpath:graphql/fetch-columns-from-projects.graphql")
-    private Resource queryResource;
+    private Resource fetchColumnsFromProjects;
 
-    @Value("classpath:graphql/move-item-status.graphql")
-    private Resource updateStatusResource;
+    @Value("classpath:graphql/update-item-move.graphql")
+    private Resource updateItemMove;
 
     private final RestClient restClient;
 
@@ -65,9 +65,8 @@ public class GithubProjectService {
 
     private String updateItemStatus(String itemId, String statusOptionId) {
         try {
-            String query = StreamUtils.copyToString(updateStatusResource.getInputStream(), StandardCharsets.UTF_8);
             Map<String, Object> requestBody = Map.of(
-                    "query", query,
+                    "query", getQuery(updateItemMove),
                     "variables", Map.of(
                             "projectId", projectId,
                             "itemId", itemId,
@@ -77,7 +76,7 @@ public class GithubProjectService {
             );
             return gitHubGraphqlCall(requestBody);
         } catch (IOException e) {
-            logger.error("Failure reading GraphQL file", e);
+            logger.error("Failure trying to update item task", e);
             throw new RuntimeException(e);
         }
     }
@@ -87,7 +86,7 @@ public class GithubProjectService {
         ObjectMapper mapper = new ObjectMapper();
         try {
             Map<String, Object> requestBody = Map.of(
-                    "query", getQuery(),
+                    "query", getQuery(fetchColumnsFromProjects),
                     "variables", Map.of("projectId", projectId)
             );
             String response = gitHubGraphqlCall(requestBody);
@@ -117,9 +116,4 @@ public class GithubProjectService {
                 .retrieve()
                 .body(String.class);
     }
-
-    private String getQuery() throws IOException {
-        return StreamUtils.copyToString(queryResource.getInputStream(), StandardCharsets.UTF_8);
-    }
-
 }

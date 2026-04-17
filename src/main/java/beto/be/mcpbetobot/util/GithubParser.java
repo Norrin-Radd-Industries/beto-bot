@@ -6,7 +6,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
+import org.springframework.util.StreamUtils;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -73,5 +77,9 @@ public class GithubParser {
             logger.error("error parsing tasks from project: {}", e.getMessage());
         }
         return Collections.emptyList();
+    }
+
+    public static String getQuery(Resource querySource) throws IOException {
+        return StreamUtils.copyToString(querySource.getInputStream(), StandardCharsets.UTF_8);
     }
 }
