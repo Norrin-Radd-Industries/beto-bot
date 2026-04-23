@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: beto-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: beto-bot
+  template:
+    metadata:
+      labels:
+        app: beto-bot
+    spec:
+      imagePullSecrets:
+        - name: ghcr-login
+      containers:
+        - name: beto-bot
+          image: ghcr.io/silversurferstate/beto-bot:v1.0.1
+          envFrom:
+            - secretRef:
+                name: app-secrets

@@ -1,24 +1,13 @@
 services:
   github-mcp:
-    image: node:20
-    container_name: github-mcp-proxy
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+    image: ghcr.io/github/github-mcp-server:latest
+    container_name: github-mcp
+    ports:
+      - "9090:8082"
     environment:
       - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
-    command: >
-      sh -c "
-      apt-get update -qq && apt-get install -y docker.io -qq &&
-      npx -y supergateway
-      --stdio 'docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server:latest stdio --toolsets repos,issues,pull_requests'
-      --port 3000
-      --host 0.0.0.0
-      --ssePath /sse
-      "
-    ports:
-      - "9090:3000"
-    restart: always
-
+      - GITHUB_TOOLSETS=repos,issues,pull_requests,contents
+    command: http
 
   beto-bot:
     build: .
@@ -28,3 +17,6 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GITHUB_PROJECT_ID=${GITHUB_PROJECT_ID}
       - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+      - GITHUB_MCP_SERVER_ADDRESS=${GITHUB_MCP_SERVER_ADDRESS}
+      - AGENT_MODEL_ANALYST=${AGENT_MODEL_ANALYST}
+      - AGENT_MODEL_CODER=${AGENT_MODEL_CODER}

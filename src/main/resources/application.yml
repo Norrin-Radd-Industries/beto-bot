@@ -4,19 +4,18 @@ spring:
   threads:
     virtual:
       enabled: true
-
   ai:
     google:
       genai:
         api-key: ${GOOGLE_API_KEY}
     mcp:
       client:
-        type: ASYNC
-        enabled: true
-        sse:
+        type: SYNC
+        enabled: false
+        streamable-http:
           connections:
             github:
-              url: http://host.docker.internal:9090
+              url: ${GITHUB_MCP_SERVER_ADDRESS}
 
 
 logging:

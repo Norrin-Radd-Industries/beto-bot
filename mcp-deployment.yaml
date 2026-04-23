@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: github-mcp
+  template:
+    metadata:
+      labels:
+        app: github-mcp
+    spec:
+      containers:
+        - name: github-mcp
+          image: ghcr.io/github/github-mcp-server:latest
+          args: ["http"]
+          ports:
+            - containerPort: 8082
+          env:
+            - name: GITHUB_PERSONAL_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: GITHUB_PERSONAL_ACCESS_TOKEN
+            - name: GITHUB_TOOLSETS
+              value: "repos,issues,pull_requests"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: github-mcp-service
+spec:
+  selector:
+    app: github-mcp
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 8082
