@@ -18,7 +18,7 @@ class GithubParserTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    void parseTaskFromJsonNode() throws JsonProcessingException {
+    void parseTaskFromJsonNode_HappyPath() throws JsonProcessingException {
         JsonNode testNode = generateTaskNode();
         GithubTask task = GithubParser.parseTaskFromJsonNode(testNode, "test");
 
@@ -57,12 +57,14 @@ class GithubParserTest {
                       {
                         "id": "item_1",
                         "fieldValues": {
-                          "nodes": [ { "name": "Backlog" } ]
+                          "nodes": [
+                            { "name": "Backlog" }
+                          ]
                         },
                         "content": {
                           "id": "issue_1",
-                          "number": 1,
-                          "title": "Task 1",
+                          "number": 101,
+                          "title": "Backlog Task",
                           "body": "Body 1",
                           "state": "OPEN",
                           "repository": {
@@ -74,17 +76,19 @@ class GithubParserTest {
                       {
                         "id": "item_2",
                         "fieldValues": {
-                          "nodes": [ { "name": "Todo" } ]
+                          "nodes": [
+                            { "name": "Todo" }
+                          ]
                         },
                         "content": {
                           "id": "issue_2",
-                          "number": 2,
-                          "title": "Task 2",
+                          "number": 102,
+                          "title": "Todo Task",
                           "body": "Body 2",
                           "state": "OPEN",
                           "repository": {
-                            "name": "repo2",
-                            "owner": { "login": "owner2" }
+                            "name": "repo1",
+                            "owner": { "login": "owner1" }
                           }
                         }
                       }
@@ -99,7 +103,9 @@ class GithubParserTest {
 
         assertEquals(2, tasks.size());
         assertEquals("ANALYSIS", tasks.get(0).type());
+        assertEquals("Backlog Task", tasks.get(0).title());
         assertEquals("CODER", tasks.get(1).type());
+        assertEquals("Todo Task", tasks.get(1).title());
     }
 
     @Test
@@ -115,6 +121,7 @@ class GithubParserTest {
               }
             }
             """;
+
         List<GithubTask> tasks = GithubParser.parseTasksFromProject(jsonResponse);
         assertTrue(tasks.isEmpty());
     }
@@ -130,23 +137,27 @@ class GithubParserTest {
               }
             }
             """;
+
         List<GithubTask> tasks = GithubParser.parseTasksFromProject(jsonResponse);
         assertTrue(tasks.isEmpty());
     }
 
     @Test
     void parseTasksFromProject_InvalidJson() {
-        String jsonResponse = "invalid json";
+        String jsonResponse = "{ invalid json }";
+
         List<GithubTask> tasks = GithubParser.parseTasksFromProject(jsonResponse);
         assertTrue(tasks.isEmpty());
     }
 
     @Test
-    void getQuery() throws IOException {
-        String queryContent = "query { test }";
-        Resource resource = new ByteArrayResource(queryContent.getBytes());
+    void getQuery_HappyPath() throws IOException {
+        String expectedQuery = "query { test }";
+        Resource resource = new ByteArrayResource(expectedQuery.getBytes());
+
         String result = GithubParser.getQuery(resource);
-        assertEquals(queryContent, result);
+
+        assertEquals(expectedQuery, result);
     }
 
     private JsonNode generateTaskNode() throws JsonProcessingException {
