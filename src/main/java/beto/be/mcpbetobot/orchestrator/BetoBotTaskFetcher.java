@@ -43,7 +43,7 @@ public class BetoBotTaskFetcher {
         this.applicationEventPublisher = applicationEventPublisher;
     }
 
-    @Scheduled(fixedRate = 18000000, initialDelay = 5000) // 30 min, delay 5s
+    @Scheduled(fixedRate = 1800000, initialDelay = 5000) // 30 min, delay 5s
     public void checkForAvailableWork() {
         logger.info(" --Checking for available work-- ");
         // get all available tasks in the project setup

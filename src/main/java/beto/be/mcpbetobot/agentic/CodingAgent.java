@@ -31,7 +31,7 @@ public class CodingAgent extends Agent {
             2. Use 'get_file_contents' for those specific files to get the current code.
             3. Implement the fix or functionality on a new branch named 'feature/issue-%d' for %s.
             4. Use 'push_files' to commit your changes.
-            5. Create a new pull request on %s
+            5. Create a new pull request to merge your feature branch with the 'master' branch on %s and link the issue to the pull request
             6. Call 'moveTaskToInProgress' with itemId='%s' to move the issue to the In progress column
             7. Finish by replying you've finished the task.
             """,task.repositoryOwner(),

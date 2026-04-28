@@ -52,15 +52,13 @@ public class GithubProjectService {
     @SuppressWarnings("unused")
     @Tool(description = "Move a GitHub project issue to the Analysed column once analysis is complete")
     public String moveTaskToAnalysed(@ToolParam(description = "The item ID") String itemId) {
-        String result = updateItemStatus(itemId, columns.get("Analysed"));
-        logger.info("move result: {}", result);
-        return result;
+        return updateItemStatus(itemId, columns.get("Analysed"));
     }
 
     @SuppressWarnings("unused")
     @Tool(description = "Move a GitHub project issue to In Progress when the coder is done working on it")
     public String moveTaskToInProgress(@ToolParam(description = "The item ID") String itemId) {
-        return updateItemStatus(itemId, columns.get("Todo"));
+        return updateItemStatus(itemId, columns.get("In progress"));
     }
 
     private String updateItemStatus(String itemId, String statusOptionId) {

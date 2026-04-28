@@ -27,13 +27,12 @@ public class AnalystAgent extends Agent{
     
             Todo:
             1. Use 'get_repository_tree' to know what paths and files are present.
-            2. Use 'get_file_contents' to read the relevant source files
+            2. Use 'get_file_contents' to read the relevant source files, use the full path string return by 'get_repository_tree.
+               If the repository tree is large, focus your analysis on the 'src/main/java' directory first.
             3. Read any files directly relevant to the issue
             4. Write a concise, in-depth analysis into the issue body using 'update_issue' with issue_number=%d, appending your analysis below the original description
             5. Call 'moveTaskToAnalysed' with itemId='%s' to move the issue to the Analysed column
-            6. Reply with a short summary of what you analysed and what you recommended
-    
-            Important: always complete all 6 steps before replying.
+            6. Finish with a short summary of what you analysed and what you recommended
             """,task.repositoryOwner(),
                 task.repository(),
                 task.number(),
