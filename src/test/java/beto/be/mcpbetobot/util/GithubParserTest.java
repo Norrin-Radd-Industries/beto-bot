@@ -6,7 +6,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class GithubParserTest {
 
@@ -15,7 +17,7 @@ class GithubParserTest {
         JsonNode testNode = generateTaskNode();
         GithubTask task = GithubParser.parseTaskFromJsonNode(testNode, "test");
 
-        assert task != null;
+        assertNotNull(task);
         assertEquals("item_id", task.itemId());
         assertEquals("issue_ID_123", task.issueId());
         assertEquals(1, task.number());
@@ -23,26 +25,83 @@ class GithubParserTest {
         assertEquals("do something", task.body());
         assertEquals("twinkie", task.repository());
         assertEquals("user-123", task.repositoryOwner());
+        assertEquals("test", task.type());
     }
 
+    @Test
+    void parseTasksFromProject() {
+        String json = """
+            {
+              "data": {
+                "node": {
+                  "items": {
+                    "nodes": [
+                      {
+                        "id": "item1",
+                        "fieldValues": {
+                          "nodes": [
+                            { "name": "Backlog" }
+                          ]
+                        },
+                        "content": {
+                          "id": "issue1",
+                          "number": 101,
+                          "title": "Analysis Task",
+                          "body": "Need analysis",
+                          "state": "OPEN",
+                          "repository": {
+                            "name": "repo1",
+                            "owner": { "login": "owner1" }
+                          }
+                        }
+                      },
+                      {
+                        "id": "item2",
+                        "fieldValues": {
+                          "nodes": [
+                            { "name": "Todo" }
+                          ]
+                        },
+                        "content": {
+                          "id": "issue2",
+                          "number": 102,
+                          "title": "Coding Task",
+                          "body": "Need code",
+                          "state": "OPEN",
+                          "repository": {
+                            "name": "repo1",
+                            "owner": { "login": "owner1" }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+            """;
+
+        List<GithubTask> tasks = GithubParser.parseTasksFromProject(json);
+
+        assertEquals(2, tasks.size());
+        assertEquals("ANALYSIS", tasks.get(0).type());
+        assertEquals("CODER", tasks.get(1).type());
+        assertEquals(101, tasks.get(0).number());
+        assertEquals(102, tasks.get(1).number());
+    }
+
+    @Test
+    void parseTasksFromProject_Empty() {
+        String json = "{}";
+        List<GithubTask> tasks = GithubParser.parseTasksFromProject(json);
+        assertTrue(tasks.isEmpty());
+    }
 
     private JsonNode generateTaskNode() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         String json = """
             {
               "id": "item_id",
-              "fieldValues": {
-                "nodes": [
-                  {},
-                  {
-                    "name": "Done",
-                    "field": {
-                      "name": "Status"
-                    }
-                  },
-                  {}
-                ]
-              },
               "content": {
                 "id": "issue_ID_123",
                 "number": 1,
@@ -60,6 +119,4 @@ class GithubParserTest {
             """;
         return mapper.readTree(json);
     }
-
-
 }
