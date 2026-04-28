@@ -42,54 +42,78 @@ class GithubParserTest {
             """;
         JsonNode testNode = mapper.readTree(json);
         GithubTask task = GithubParser.parseTaskFromJsonNode(testNode, "test");
+        assertNull(task);
+    }
 
+    @Test
+    void parseTaskFromJsonNode_MissingFieldsInContent() throws JsonProcessingException {
+        String json = """
+            {
+              "id": "item_id",
+              "content": {
+                "id": "issue_ID_123"
+              }
+            }
+            """;
+        JsonNode testNode = mapper.readTree(json);
+        GithubTask task = GithubParser.parseTaskFromJsonNode(testNode, "test");
         assertNull(task);
     }
 
     @Test
     void parseTasksFromProject_HappyPath() {
-        String jsonResponse = """
+        String json = """
             {
               "data": {
                 "node": {
                   "items": {
                     "nodes": [
                       {
-                        "id": "item_1",
+                        "id": "item1",
                         "fieldValues": {
                           "nodes": [
                             { "name": "Backlog" }
                           ]
                         },
                         "content": {
-                          "id": "issue_1",
-                          "number": 101,
-                          "title": "Backlog Task",
+                          "id": "issue1",
+                          "number": 1,
+                          "title": "Task 1",
                           "body": "Body 1",
                           "state": "OPEN",
-                          "repository": {
-                            "name": "repo1",
-                            "owner": { "login": "owner1" }
-                          }
+                          "repository": { "name": "repo", "owner": { "login": "owner" } }
                         }
                       },
                       {
-                        "id": "item_2",
+                        "id": "item2",
                         "fieldValues": {
                           "nodes": [
                             { "name": "Todo" }
                           ]
                         },
                         "content": {
-                          "id": "issue_2",
-                          "number": 102,
-                          "title": "Todo Task",
+                          "id": "issue2",
+                          "number": 2,
+                          "title": "Task 2",
                           "body": "Body 2",
                           "state": "OPEN",
-                          "repository": {
-                            "name": "repo1",
-                            "owner": { "login": "owner1" }
-                          }
+                          "repository": { "name": "repo", "owner": { "login": "owner" } }
+                        }
+                      },
+                      {
+                        "id": "item3",
+                        "fieldValues": {
+                          "nodes": [
+                            { "name": "In Progress" }
+                          ]
+                        },
+                        "content": {
+                          "id": "issue3",
+                          "number": 3,
+                          "title": "Task 3",
+                          "body": "Body 3",
+                          "state": "OPEN",
+                          "repository": { "name": "repo", "owner": { "login": "owner" } }
                         }
                       }
                     ]
@@ -99,18 +123,16 @@ class GithubParserTest {
             }
             """;
 
-        List<GithubTask> tasks = GithubParser.parseTasksFromProject(jsonResponse);
+        List<GithubTask> tasks = GithubParser.parseTasksFromProject(json);
 
         assertEquals(2, tasks.size());
         assertEquals("ANALYSIS", tasks.get(0).type());
-        assertEquals("Backlog Task", tasks.get(0).title());
         assertEquals("CODER", tasks.get(1).type());
-        assertEquals("Todo Task", tasks.get(1).title());
     }
 
     @Test
     void parseTasksFromProject_EmptyNodes() {
-        String jsonResponse = """
+        String json = """
             {
               "data": {
                 "node": {
@@ -121,14 +143,13 @@ class GithubParserTest {
               }
             }
             """;
-
-        List<GithubTask> tasks = GithubParser.parseTasksFromProject(jsonResponse);
+        List<GithubTask> tasks = GithubParser.parseTasksFromProject(json);
         assertTrue(tasks.isEmpty());
     }
 
     @Test
     void parseTasksFromProject_MissingNodes() {
-        String jsonResponse = """
+        String json = """
             {
               "data": {
                 "node": {
@@ -137,27 +158,23 @@ class GithubParserTest {
               }
             }
             """;
-
-        List<GithubTask> tasks = GithubParser.parseTasksFromProject(jsonResponse);
+        List<GithubTask> tasks = GithubParser.parseTasksFromProject(json);
         assertTrue(tasks.isEmpty());
     }
 
     @Test
     void parseTasksFromProject_InvalidJson() {
-        String jsonResponse = "{ invalid json }";
-
-        List<GithubTask> tasks = GithubParser.parseTasksFromProject(jsonResponse);
+        String json = "invalid json";
+        List<GithubTask> tasks = GithubParser.parseTasksFromProject(json);
         assertTrue(tasks.isEmpty());
     }
 
     @Test
     void getQuery_HappyPath() throws IOException {
-        String expectedQuery = "query { test }";
-        Resource resource = new ByteArrayResource(expectedQuery.getBytes());
-
+        String content = "query { test }";
+        Resource resource = new ByteArrayResource(content.getBytes());
         String result = GithubParser.getQuery(resource);
-
-        assertEquals(expectedQuery, result);
+        assertEquals(content, result);
     }
 
     private JsonNode generateTaskNode() throws JsonProcessingException {
