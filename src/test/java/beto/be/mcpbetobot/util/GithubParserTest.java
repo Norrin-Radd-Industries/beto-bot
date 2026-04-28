@@ -18,7 +18,7 @@ class GithubParserTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    void parseTaskFromJsonNode_HappyPath() throws JsonProcessingException {
+    void parseTaskFromJsonNode() throws JsonProcessingException {
         JsonNode testNode = generateTaskNode();
         GithubTask task = GithubParser.parseTaskFromJsonNode(testNode, "test");
 
