@@ -1,0 +1,10 @@
+GITHUB_PERSONAL_ACCESS_TOKEN: test-token
+GITHUB_PROJECT_ID: test-project
+GITHUB_MCP_SERVER_ADDRESS: http://localhost:8080
+AGENT_MODEL_CODER: gpt-4
+AGENT_MODEL_ANALYST: gpt-4
+spring:
+  ai:
+    google:
+      genai:
+        api-key: test-key
