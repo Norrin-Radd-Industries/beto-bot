@@ -2,7 +2,6 @@ package beto.be.mcpbetobot.mcp;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
@@ -40,13 +39,9 @@ public class GithubProjectService {
     private final Map<String, String> columns = new HashMap<>();
     private String statusFieldId;
 
-    @PostConstruct
-    private void getColumnFields() {
-        fetchAndInjectColumnFields();
-    }
-
     public GithubProjectService(RestClient.Builder restClientBuilder) {
         this.restClient = restClientBuilder.build();
+        fetchAndInjectColumnFields();
     }
 
     @SuppressWarnings("unused")
