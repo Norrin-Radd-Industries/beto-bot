@@ -3,7 +3,7 @@ name: Deploy to GHCR
 on:
   push:
     branches:
-      - "main" # Deploys only when you merge master into main
+      - "main"
 
 jobs:
   build-and-push:
