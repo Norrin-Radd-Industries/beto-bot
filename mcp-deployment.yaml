@@ -25,7 +25,7 @@ spec:
                   name: app-secrets
                   key: GITHUB_PERSONAL_ACCESS_TOKEN
             - name: GITHUB_TOOLSETS
-              value: "repos,issues,pull_requests"
+              value: "repos,issues,pull_requests,contents"
 ---
 apiVersion: v1
 kind: Service

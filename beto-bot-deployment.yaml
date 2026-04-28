@@ -16,7 +16,7 @@ spec:
         - name: ghcr-login
       containers:
         - name: beto-bot
-          image: ghcr.io/silversurferstate/beto-bot:v1.0.1
+          image: ghcr.io/silversurferstate/beto-bot:latest
           envFrom:
             - secretRef:
                 name: app-secrets
