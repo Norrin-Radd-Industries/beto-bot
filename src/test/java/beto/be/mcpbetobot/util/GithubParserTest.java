@@ -15,12 +15,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class GithubParserTest {
 
+    private final ObjectMapper mapper = new ObjectMapper();
+
     @Test
-    void parseTaskFromJsonNode() throws JsonProcessingException {
+    void parseTaskFromJsonNode_HappyPath() throws JsonProcessingException {
         JsonNode testNode = generateTaskNode();
         GithubTask task = GithubParser.parseTaskFromJsonNode(testNode, "test");
 
-        assert task != null;
+        assertNotNull(task);
         assertEquals("item_id", task.itemId());
         assertEquals("issue_ID_123", task.issueId());
         assertEquals(1, task.number());
@@ -33,10 +35,25 @@ class GithubParserTest {
 
     @Test
     void parseTaskFromJsonNode_MissingContent() throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
         String json = """
             {
               "id": "item_id"
+            }
+            """;
+        JsonNode testNode = mapper.readTree(json);
+        GithubTask task = GithubParser.parseTaskFromJsonNode(testNode, "test");
+
+        assertNull(task);
+    }
+
+    @Test
+    void parseTaskFromJsonNode_MissingFieldsInContent() throws JsonProcessingException {
+        String json = """
+            {
+              "id": "item_id",
+              "content": {
+                "id": "issue_ID_123"
+              }
             }
             """;
         JsonNode testNode = mapper.readTree(json);
@@ -161,7 +178,6 @@ class GithubParserTest {
     }
 
     private JsonNode generateTaskNode() throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
         String json = """
             {
               "id": "item_id",
