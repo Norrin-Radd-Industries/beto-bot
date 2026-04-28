@@ -45,8 +45,8 @@ public class GithubProjectService {
         fetchAndInjectColumnFields();
     }
 
-    public GithubProjectService() {
-        this.restClient = RestClient.create();
+    public GithubProjectService(RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder.build();
     }
 
     @SuppressWarnings("unused")

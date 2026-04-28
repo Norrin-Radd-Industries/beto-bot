@@ -38,8 +38,8 @@ public class BetoBotTaskFetcher {
     private final Logger logger = LoggerFactory.getLogger(BetoBotTaskFetcher.class);
     private final ApplicationEventPublisher applicationEventPublisher;
 
-    public BetoBotTaskFetcher(ApplicationEventPublisher applicationEventPublisher) {
-        this.restClient = RestClient.create();
+    public BetoBotTaskFetcher(ApplicationEventPublisher applicationEventPublisher, RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder.build();
         this.applicationEventPublisher = applicationEventPublisher;
     }
 
