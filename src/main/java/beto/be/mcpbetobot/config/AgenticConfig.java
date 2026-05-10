@@ -1,6 +1,6 @@
 package beto.be.mcpbetobot.config;
 
-import beto.be.mcpbetobot.mcp.GithubProjectService;
+import beto.be.mcpbetobot.github.GithubProjectService;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -34,10 +34,11 @@ public class AgenticConfig {
     public List<McpSyncClient> httpMcpSyncClients(@Value("${GITHUB_PERSONAL_ACCESS_TOKEN}") String mcpKey) {
         var transport = HttpClientStreamableHttpTransport.builder(githubMcpServerAddress)
                 .customizeRequest(requestBuilder ->
-                    requestBuilder.setHeader(
-                            "Authorization",
-                            "Bearer " + mcpKey))
-                .build();
+                    requestBuilder
+                        .setHeader("Authorization", "Bearer " + mcpKey)
+                        .setHeader("X-MCP-Toolsets", "all")
+                        .setHeader("X-MCP-Insiders", "true"))
+                    .build();
 
         var client = McpClient.sync(transport)
                 .requestTimeout(Duration.ofSeconds(30))

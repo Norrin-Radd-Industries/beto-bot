@@ -3,23 +3,56 @@ package beto.be.mcpbetobot.util;
 import beto.be.mcpbetobot.domain.GithubTask;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.Resource;
-import org.springframework.util.StreamUtils;
+import org.springframework.ai.document.Document;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class GithubParser {
 
     private static final Logger logger = LoggerFactory.getLogger(GithubParser.class);
-    private static final ObjectMapper mapper = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private static final JsonMapper mapper = JsonMapper.builder()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .build();
+
+
+    /**
+     * Parses the jsonResponse into GithubTasks
+     */
+    public static List<GithubTask> parseTasksFromProject(String jsonResponse) {
+        try {
+            JsonNode root = mapper.readTree(jsonResponse);
+
+            if (!root.isArray()) {
+                return Collections.emptyList();
+            }
+
+            List<GithubTask> parsedTasks = new ArrayList<>();
+            for (JsonNode item : root) {
+                String status = item.path("status").asText();
+                String type = null;
+
+                switch(status) {
+                    case "Ready" :
+                        parsedTasks.add(parseTaskFromJsonNode(item, "ANALYSIS"));
+                        break;
+                    case "In progress" :
+                        parsedTasks.add(parseTaskFromJsonNode(item, "CODER"));
+                        break;
+                }
+            }
+            return parsedTasks;
+        } catch (Exception e) {
+            logger.error("error parsing tasks from project: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
 
     /**
      * individual task mapper
@@ -46,41 +79,99 @@ public class GithubParser {
         return null;
     }
 
-
     /**
-     * Parses the jsonResponse into GithubTasks
+     * Parse repo names from get_projects
      */
-    public static List<GithubTask> parseTasksFromProject(String jsonResponse) {
+    public static List<String> parseRepoNames(String jsonResponse) {
+        List<String> repoNames = new ArrayList<>();
         try {
             JsonNode root = mapper.readTree(jsonResponse);
-            JsonNode tasks = root.at("/data/node/items/nodes");
-
-            if (tasks.isMissingNode() || !tasks.isArray()) {
-                return Collections.emptyList();
+            JsonNode repos = root.path("repositories");
+            if (root.isArray()) {
+                for (JsonNode repo: repos) {
+                   repoNames.add(repo.asText());
+                }
             }
+        } catch (Exception e) {
+            logger.error("error parsing repository names", e);
+        }
+        return repoNames;
+    }
 
-            List<GithubTask> parsedTasks = new ArrayList<>();
-            for (JsonNode task : tasks) {
-                JsonNode fieldValueNodes = task.at("/fieldValues/nodes");
-                    for (JsonNode node : fieldValueNodes) {
-                    switch(node.path("name").asText()) {
-                        case "Backlog" :
-                            parsedTasks.add(parseTaskFromJsonNode(task, "ANALYSIS"));
-                            break;
-                        case "Todo" :
-                            parsedTasks.add(parseTaskFromJsonNode(task, "CODER"));
-                            break;
+    /**
+     * Parses the JSON array returned by the MCP list_pull_requests tool
+     */
+    public static List<Document> parseMergedPRsToDocuments(String jsonResponse, String repoName) {
+        List<Document> documents = new ArrayList<>();
+        try {
+            JsonNode root = mapper.readTree(jsonResponse);
+            if (root.isArray()) {
+                for (JsonNode pr : root) {
+                    // only absorb successful merges
+                    if (!pr.path("merged_at").isNull() && !pr.path("merged_at").isMissingNode()) {
+                        String content = String.format("PR Title: %s\nDescription: %s",
+                                pr.path("title").asText("No Title"),
+                                pr.path("body").asText("No Description"));
+
+                        // make Spring AI doc with data, this will help decide which agent we need
+                        Document doc = new Document(content, Map.of(
+                                "source", "merged_pr",
+                                "repository", repoName,
+                                "merged_at", pr.path("mergedAt").asText(),
+                                "pr_url", pr.path("html_url").asText("")
+                        ));
+                        documents.add(doc);
                     }
                 }
             }
-            return parsedTasks;
-        } catch (Exception e) {
-            logger.error("error parsing tasks from project: {}", e.getMessage());
-            return Collections.emptyList();
+        }catch (Exception e) {
+            logger.error("Error parsing merged PRs", e);
         }
+        return documents;
     }
 
-    public static String getQuery(Resource querySource) throws IOException {
-        return StreamUtils.copyToString(querySource.getInputStream(), StandardCharsets.UTF_8);
+    /**
+     * Parses the JSON returned by the MCP get_repository_tree tool
+     */
+    public static List<String> parseMcpTreeToPaths(String jsonResponse) {
+        List<String> filePaths = new ArrayList<>();
+        try {
+            JsonNode root = mapper.readTree(jsonResponse);
+            JsonNode tree = root.isObject()? root.path("tree") : root;
+
+            if (tree.isArray()) {
+                for (JsonNode node : tree) {
+                    // we only want actual files ("blob"), not directories ("tree")
+                    if ("blob".equals(node.path("type").asText())) {
+                        filePaths.add(node.path("path").asText());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error parsing MCP tree to paths", e);
+        }
+        return filePaths;
     }
+
+    public static Document createDocument(String codeContent, String repoName, String filePath) {
+        return new Document(codeContent, Map.of(
+                "repository", repoName,
+                "filePath", filePath,
+                "type", "code_file"
+        ));
+    }
+
+    public static String extractText(McpSchema.CallToolResult result) {
+        if (result == null || result.content() == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        result.content().forEach(content -> {
+            if (content instanceof McpSchema.TextContent textContent) {
+                sb.append(textContent.text());
+            }
+        });
+        return sb.toString();
+    }
+
 }
