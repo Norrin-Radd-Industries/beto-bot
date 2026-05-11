@@ -34,7 +34,11 @@ public class McpCodeFetcherService {
 
         try {
             McpSchema.CallToolResult result = githubMcpClient.callTool(
-                    new McpSchema.CallToolRequest("get_repository_tree", Map.of("repo", repo, "owner", owner))
+                    new McpSchema.CallToolRequest("get_repository_tree",
+                            Map.of(
+                                    "repo", repo,
+                                    "owner", owner,
+                                    "recursive", true))
             );
             String treeText = extractText(result);
             List<String> filePaths = parseMcpTreeToPaths(treeText);

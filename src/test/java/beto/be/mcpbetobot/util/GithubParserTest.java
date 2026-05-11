@@ -1,10 +1,8 @@
 package beto.be.mcpbetobot.util;
 
 import beto.be.mcpbetobot.domain.GithubTask;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.document.Document;
 
 import java.util.List;
 
@@ -13,110 +11,54 @@ import static org.junit.jupiter.api.Assertions.*;
 class GithubParserTest {
 
     @Test
-    void parseTaskFromJsonNode() throws JsonProcessingException {
-        JsonNode testNode = generateTaskNode();
-        GithubTask task = GithubParser.parseTaskFromJsonNode(testNode, "test");
-
-        assertNotNull(task);
-        assertEquals("item_id", task.itemId());
-        assertEquals("issue_ID_123", task.issueId());
-        assertEquals(1, task.number());
-        assertEquals("title_123", task.title());
-        assertEquals("do something", task.body());
-        assertEquals("twinkie", task.repository());
-        assertEquals("user-123", task.repositoryOwner());
-        assertEquals("test", task.type());
-    }
-
-    @Test
-    void parseTasksFromProject() {
-        String json = """
-            {
-              "data": {
-                "node": {
-                  "items": {
-                    "nodes": [
-                      {
-                        "id": "item1",
-                        "fieldValues": {
-                          "nodes": [
-                            { "name": "Backlog" }
-                          ]
-                        },
-                        "content": {
-                          "id": "issue1",
-                          "number": 101,
-                          "title": "Analysis Task",
-                          "body": "Need analysis",
-                          "state": "OPEN",
-                          "repository": {
-                            "name": "repo1",
-                            "owner": { "login": "owner1" }
-                          }
-                        }
-                      },
-                      {
-                        "id": "item2",
-                        "fieldValues": {
-                          "nodes": [
-                            { "name": "Todo" }
-                          ]
-                        },
-                        "content": {
-                          "id": "issue2",
-                          "number": 102,
-                          "title": "Coding Task",
-                          "body": "Need code",
-                          "state": "OPEN",
-                          "repository": {
-                            "name": "repo1",
-                            "owner": { "login": "owner1" }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                }
+    void shouldParseMcpPrResultToDocuments() {
+        String mockMcpJson = """
+            [
+              {
+                "title": "Fix Timeout",
+                "body": "Changed timeout to 30s",
+                "merged_at": "2026-05-01T10:00:00Z",
+                "html_url": "https://github.com/org/repo/pull/1"
               }
-            }
+            ]
             """;
 
-        List<GithubTask> tasks = GithubParser.parseTasksFromProject(json);
+        List<Document> docs = GithubParser.parseMergedPRsToDocuments(mockMcpJson, "org/repo");
 
-        assertEquals(2, tasks.size());
-        assertEquals("ANALYSIS", tasks.get(0).type());
-        assertEquals("CODER", tasks.get(1).type());
-        assertEquals(101, tasks.get(0).number());
-        assertEquals(102, tasks.get(1).number());
+        assertEquals(1, docs.size());
+        assertEquals("merged_pr", docs.getFirst().getMetadata().get("source"));
+        assertTrue(docs.getFirst().getFormattedContent().contains("Fix Timeout"));
     }
 
     @Test
-    void parseTasksFromProject_Empty() {
-        String json = "{}";
-        List<GithubTask> tasks = GithubParser.parseTasksFromProject(json);
-        assertTrue(tasks.isEmpty());
-    }
-
-    private JsonNode generateTaskNode() throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
-        String json = """
-            {
-              "id": "item_id",
-              "content": {
-                "id": "issue_ID_123",
-                "number": 1,
-                "title": "title_123",
-                "body": "do something",
+    void shouldParseMcpTasksCorrectly() {
+        String mockMcpJson = """
+        [
+          {
+            "id": "item_123",
+            "status": "Ready",
+            "content": {
+                "id": "issue_456",
+                "number": 42,
+                "title": "Fix the bug",
+                "body": "This is a bug description",
                 "state": "OPEN",
                 "repository": {
-                  "name": "twinkie",
-                  "owner": {
-                    "login": "user-123"
-                  }
+                    "name": "my-repo",
+                    "owner": {
+                        "login": "my-org"
+                    }
                 }
-              }
             }
-            """;
-        return mapper.readTree(json);
+          }
+        ]
+        """;
+
+        List<GithubTask> tasks = GithubParser.parseTasksFromProject(mockMcpJson);
+
+        assertEquals(1, tasks.size());
+        assertNotNull(tasks.getFirst());
+        assertEquals("ANALYSIS", tasks.getFirst().type());
+        assertEquals(42, tasks.getFirst().number());
     }
 }

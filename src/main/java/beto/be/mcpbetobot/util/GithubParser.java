@@ -9,10 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public class GithubParser {
 
@@ -36,7 +34,6 @@ public class GithubParser {
             List<GithubTask> parsedTasks = new ArrayList<>();
             for (JsonNode item : root) {
                 String status = item.path("status").asText();
-                String type = null;
 
                 switch(status) {
                     case "Ready" :
@@ -83,19 +80,20 @@ public class GithubParser {
      * Parse repo names from get_projects
      */
     public static List<String> parseRepoNames(String jsonResponse) {
-        List<String> repoNames = new ArrayList<>();
+        Set<String> repoNames = new HashSet<>();
         try {
             JsonNode root = mapper.readTree(jsonResponse);
-            JsonNode repos = root.path("repositories");
-            if (root.isArray()) {
-                for (JsonNode repo: repos) {
-                   repoNames.add(repo.asText());
+            JsonNode items = root.path("items");
+            if (items.isArray()) {
+                for (JsonNode item: items) {
+                    JsonNode repo = item.at("/content/repository/full_name");
+                    repoNames.add(repo.asText());
                 }
             }
         } catch (Exception e) {
             logger.error("error parsing repository names", e);
         }
-        return repoNames;
+        return repoNames.stream().toList();
     }
 
     /**
@@ -117,7 +115,7 @@ public class GithubParser {
                         Document doc = new Document(content, Map.of(
                                 "source", "merged_pr",
                                 "repository", repoName,
-                                "merged_at", pr.path("mergedAt").asText(),
+                                "merged_at", pr.path("merged_at").asText(),
                                 "pr_url", pr.path("html_url").asText("")
                         ));
                         documents.add(doc);
@@ -154,11 +152,15 @@ public class GithubParser {
     }
 
     public static Document createDocument(String codeContent, String repoName, String filePath) {
-        return new Document(codeContent, Map.of(
-                "repository", repoName,
-                "filePath", filePath,
-                "type", "code_file"
-        ));
+        String uniqueId = repoName + ":" + filePath;
+        UUID deterministicId = UUID.nameUUIDFromBytes(uniqueId.getBytes(StandardCharsets.UTF_8));
+        return Document.builder()
+                .id(deterministicId.toString())
+                .text(codeContent)
+                .metadata("type", "code_file")
+                .metadata("filePath", filePath)
+                .metadata("repository", repoName)
+                .build();
     }
 
     public static String extractText(McpSchema.CallToolResult result) {

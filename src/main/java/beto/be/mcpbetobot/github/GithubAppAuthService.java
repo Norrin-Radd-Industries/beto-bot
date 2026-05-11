@@ -1,6 +1,9 @@
 package beto.be.mcpbetobot.github;
 
 import io.jsonwebtoken.Jwts;
+import org.bouncycastle.openssl.PEMKeyPair;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.kohsuke.github.GHAppInstallation;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
@@ -9,22 +12,19 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 
+import java.io.IOException;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Base64;
 import java.util.Date;
 
 @Service
 public class GithubAppAuthService {
 
-    @Value("${GITHUB_APP_ID}")
-    private String appId;
+    @Value("${GITHUB_CLIENT_ID}")
+    private String clientId;
 
-    @Value("${GITHUB_APP_KEY}")
+    @Value("${GITHUB_APP_KEY_PATH}")
     private Resource key;
 
     @Value("${GITHUB_APP_INSTALL_ID}")
@@ -35,7 +35,7 @@ public class GithubAppAuthService {
             String privateKey = StreamUtils.copyToString(
                     key.getInputStream(), StandardCharsets.UTF_8);
             GitHub gitHubApp = new GitHubBuilder()
-                    .withJwtToken(generateJwt(appId, privateKey))
+                    .withJwtToken(generateJwt(clientId, privateKey))
                     .build();
 
             GHAppInstallation installation = gitHubApp
@@ -47,17 +47,19 @@ public class GithubAppAuthService {
         }
     }
 
-    private String generateJwt(String appId, String key) throws NoSuchAlgorithmException, InvalidKeySpecException {
-        // get the contents for the key
-        String keyContent = key
-                .replace("-----BEGIN RSA PRIVATE KEY-----", "")
-                .replace("-----END RSA PRIVATE KEY-----", "")
-                .replaceAll("\\s", "");
+    private String generateJwt(String clientId, String key) {
+        PrivateKey privateKey;
 
-        // decode the key and transform into java privateKey object
-        byte[] encodedKey = Base64.getDecoder().decode(keyContent);
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(encodedKey));
+        try (PEMParser pemParser = new PEMParser(new StringReader(key))) {
+            Object object = pemParser.readObject();
+
+            PEMKeyPair pemKeyPair = (PEMKeyPair) object;
+
+            JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
+            privateKey = converter.getPrivateKey(pemKeyPair.getPrivateKeyInfo());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         Date now = new Date(System.currentTimeMillis());
         Date expire = new Date (System.currentTimeMillis() + 600000);
@@ -65,7 +67,7 @@ public class GithubAppAuthService {
         return Jwts.builder()
                 .issuedAt(now)
                 .expiration(expire)
-                .issuer(appId)
+                .issuer(clientId)
                 .signWith(privateKey, Jwts.SIG.RS256)
                 .compact();
     }

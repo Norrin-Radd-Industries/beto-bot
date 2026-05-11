@@ -8,6 +8,12 @@ spring:
     google:
       genai:
         api-key: ${GOOGLE_API_KEY}
+        embedding:
+          text:
+            options:
+              model: models/gemini-embedding-2
+              dimensions: 1536
+          api-key: ${GOOGLE_API_KEY}
     mcp:
       client:
         type: SYNC
@@ -22,6 +28,7 @@ spring:
         distance-type: COSINE_DISTANCE
         dimensions: 1536
         max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
+        initialize-schema: true
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}

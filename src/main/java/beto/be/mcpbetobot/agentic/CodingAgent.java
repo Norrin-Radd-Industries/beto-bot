@@ -15,32 +15,27 @@ public class CodingAgent extends Agent {
     String buildPrompt(GithubTask task) {
         return String.format("""
             System context:
-            Owner: %s
-            Repo: %s
-            you must always provide these owner and repo values when calling tools
-            NOTE: this issue has been pre-analysed, the analysis is in the description.
+            Owner: %s | Repo: %s
+            Always provide owner and repo when calling tools.
 
-            Task:
-            You are senior Java Developer. You need to fix or implement the following issue:
-
-            Title: %s
+            You are senior Java Developer.
+            
+            HISTORICAL CONTEXT & CODE SNIPPETS:
+            {question_answer_context}
+            
+            Task: Implement the fix for "%s".
             Description: %s
 
-            Todo:
-            1. Identify the files mentioned in the analysis using 'get_repository_tree'
-            2. Use 'get_file_contents' for those specific files to get the current code.
-            3. Implement the fix or functionality on a new branch named 'feature/issue-%d' for %s.
-            4. Use 'push_files' to commit your changes.
-            5. Create a new pull request to merge your feature branch with the 'master' branch on %s and link the issue to the pull request
-            6. Call 'moveTaskToInProgress' with itemId='%s' to move the issue to the In progress column
-            7. Finish by replying you've finished the task.
+            Instructions:
+            1. 1. Use the 'HISTORICAL CONTEXT' to identify existing patterns or past PRs that solved similar issues.
+            2. Use MCP tools only if you need to read additional files not covered in the retrieved context.
+            3. Implement the fix or functionality on a new branch named 'feature/issue-%d'.
+            4. Push changes, create a PR, and call 'moveTask' with itemId='%s and statusName='In review'.
             """,task.repositoryOwner(),
                 task.repository(),
                 task.title(),
                 task.body(),
                 task.number(),
-                task.repository(),
-                task.repository(),
                 task.itemId());
     }
 }

@@ -40,7 +40,7 @@ public class BetoBotTaskFetcher {
 
     @EventListener(ApplicationReadyEvent.class)
     public void loadInitialCodebase() {
-        logger.info("-- vector DB is empty. Starting codebase to vector transformation -- ");
+        logger.info("-- vector DB is empty. Starting codebase to vector transformation --");
         List<String> myRepos = githubProjectService.fetchLinkedRepositoryNames();
 
         for (String repo: myRepos) {
@@ -50,7 +50,7 @@ public class BetoBotTaskFetcher {
         }
     }
 
-    @Scheduled(fixedRate = 1800000)
+    @Scheduled(fixedRate = 1800000, initialDelay = 30000)
     public void syncMergedKnowledge() {
         logger.info(" --Synchronizing merged code into Vector DB-- ");
         List<String> myRepos = githubProjectService.fetchLinkedRepositoryNames();
@@ -64,7 +64,7 @@ public class BetoBotTaskFetcher {
         }
     }
 
-    @Scheduled(fixedRate = 1800000, initialDelay = 5000) // 30 min, delay 5s
+    @Scheduled(fixedRate = 1800000, initialDelay = 60000) // 30 min, delay 1min
     public void checkForAvailableWork() {
         logger.info(" --Checking for available work-- ");
         // get all available tasks in the project setup

@@ -14,6 +14,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +31,7 @@ public class GithubProjectService {
     private final String orgOwner;
     private final int projectNumber;
     private String projectId;
+    private final List<String> repos = new ArrayList<>();
 
     public GithubProjectService(List<McpSyncClient> mcpClients,
                                 @Value("${GITHUB_ORG_OWNER}") String orgOwner,
@@ -44,16 +46,20 @@ public class GithubProjectService {
         try {
             logger.info("Resolving project ID for project #{} in org: {}", projectNumber, orgOwner);
             var result = mcpClient.callTool(new McpSchema.CallToolRequest(
-                    "list_projects",
-                    Map.of("owner", orgOwner)
+                    "projects_list",
+                    Map.of(
+                            "owner", orgOwner,
+                            "method", "list_projects",
+                    "project_number", projectNumber)
             ));
 
             String jsonResponse = extractText(result);
             JsonNode root = mapper.readTree(jsonResponse);
-            if (root.isArray()) {
-                for (JsonNode project : root) {
+            JsonNode projects = root.path("projects");
+            if (projects.isArray()) {
+                for (JsonNode project : projects) {
                     if (project.path("number").asInt() == projectNumber) {
-                        this.projectId = project.path("id").asText();
+                        this.projectId = project.path("node_id").asText();
                         return;
                     }
                 }
@@ -66,8 +72,8 @@ public class GithubProjectService {
     }
 
     @SuppressWarnings("unused")
-    @Tool(description = "Move a GitHub project issue to the Analysed column once analysis is complete")
-    public String moveTaskToAnalysed(@ToolParam(description = "The item ID") String itemId,
+    @Tool(description = "Move a GitHub project issue by updating its status field")
+    public String moveTask(@ToolParam(description = "The item ID") String itemId,
                                      @ToolParam(description = "The status it should move to") String statusName) {
         // use the mcpClient to call update the project's item state, effectively moving it
         mcpClient.callTool(new McpSchema.CallToolRequest(
@@ -87,7 +93,7 @@ public class GithubProjectService {
             logger.warn("No default project ID set. Cannot fetch available tasks.");
             return List.of();
         }
-        return getAvailableTasks(projectId);
+        return getAvailableTasks();
     }
 
     // get repo's connected to this project so we can index them for RAG
@@ -98,10 +104,16 @@ public class GithubProjectService {
         }
         try {
             var result = mcpClient.callTool(new McpSchema.CallToolRequest(
-                    "get_project",
-                    Map.of("projectId", projectId)
+                    "projects_list",
+                    Map.of("projectId", projectId,
+                            "method", "list_project_items",
+                            "owner", orgOwner,
+                            "project_number", projectNumber)
             ));
-            return parseRepoNames(extractText(result));
+            List<String> repoNames = parseRepoNames(extractText(result));
+
+            repos.addAll(repoNames);
+            return repoNames;
         } catch (Exception e) {
             logger.error("Failed to fetch linked repos through MCP", e);
             return List.of();
@@ -109,11 +121,17 @@ public class GithubProjectService {
     }
 
     // get task connected to this project
-    public List<GithubTask> getAvailableTasks(String id) {
-        var result = mcpClient.callTool(new McpSchema.CallToolRequest(
-                "get_project_items",
-                Map.of("projectId", id)
-        ));
-        return parseTasksFromProject(extractText(result));
+    public List<GithubTask> getAvailableTasks() {
+        for (String repo: repos) {
+            String[] ownerWithRepo = repo.split("/");
+            var result = mcpClient.callTool(new McpSchema.CallToolRequest(
+                    "list_issues",
+                    Map.of("owner", ownerWithRepo[0],
+                            "repo", ownerWithRepo[1],
+                            "state", "open")
+            ));
+            return parseTasksFromProject(extractText(result));
+        }
+        return List.of();
     }
 }
