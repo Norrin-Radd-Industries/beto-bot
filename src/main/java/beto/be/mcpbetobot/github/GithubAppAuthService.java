@@ -7,9 +7,8 @@ import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.kohsuke.github.GHAppInstallation;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.core.io.Resource;
-import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 
 import java.io.IOException;
@@ -18,17 +17,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.util.Date;
 
-@Service
-public class GithubAppAuthService {
-
-    @Value("${GITHUB_CLIENT_ID}")
-    private String clientId;
-
-    @Value("${GITHUB_APP_KEY_PATH}")
-    private Resource key;
-
-    @Value("${GITHUB_APP_INSTALL_ID}")
-    private String installationId;
+@ConfigurationProperties(prefix = "github-app")
+public record GithubAppAuthService(String clientId, Resource key, String installationId) {
 
     public String getInstallationToken() {
         try {
@@ -62,7 +52,7 @@ public class GithubAppAuthService {
         }
 
         Date now = new Date(System.currentTimeMillis());
-        Date expire = new Date (System.currentTimeMillis() + 600000);
+        Date expire = new Date (System.currentTimeMillis() + 60000);
 
         return Jwts.builder()
                 .issuedAt(now)

@@ -30,8 +30,9 @@ public class AnalystAgent extends Agent{
             Instructions:
             1. Review the 'RELEVANT CODE' provided. This context contains code found by semantic search.
             2. If you need to see the full content of a specific file mentioned in the context that wasn't fully provided, use 'get_file_contents'.
+            3. When providing the analysis, be sure to add the path of the files where work is needed or suggest the path when new files need to be created.
             4. Write a concise, in-depth analysis into the issue body using 'update_issue' with issue_number=%d, appending your analysis below the original description.
-            5. Call 'moveTask' with itemId='%s' and statusName='analyzed' to move the issue.
+            5. Call 'moveTask' with itemId='%s' and statusName='Analyzed' to move the issue.
             """,task.repositoryOwner(),
                 task.repository(),
                 task.number(),

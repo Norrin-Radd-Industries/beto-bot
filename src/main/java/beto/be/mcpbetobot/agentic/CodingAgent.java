@@ -30,7 +30,7 @@ public class CodingAgent extends Agent {
             1. 1. Use the 'HISTORICAL CONTEXT' to identify existing patterns or past PRs that solved similar issues.
             2. Use MCP tools only if you need to read additional files not covered in the retrieved context.
             3. Implement the fix or functionality on a new branch named 'feature/issue-%d'.
-            4. Push changes, create a PR, and call 'moveTask' with itemId='%s and statusName='In review'.
+            4. Push changes, create a PR, link the issue to the PR and call 'moveTask' with itemId='%s and statusName='Developed'.
             """,task.repositoryOwner(),
                 task.repository(),
                 task.title(),

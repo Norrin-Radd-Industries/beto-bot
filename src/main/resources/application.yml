@@ -4,6 +4,7 @@ spring:
   threads:
     virtual:
       enabled: true
+
   ai:
     google:
       genai:
@@ -14,26 +15,31 @@ spring:
               model: models/gemini-embedding-2
               dimensions: 1536
           api-key: ${GOOGLE_API_KEY}
+
     mcp:
       client:
-        type: SYNC
-        enabled: false
         streamable-http:
           connections:
             github:
               url: ${GITHUB_MCP_SERVER_ADDRESS}
+
     vectorstore:
       pgvector:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
         dimensions: 1536
-        max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
+        max-document-batch-size: 10000
         initialize-schema: true
+
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
 
+github-app:
+  clientId: ${GITHUB_CLIENT_ID}
+  installationId: ${GITHUB_APP_INSTALL_ID}
+  key: ${GITHUB_APP_KEY_PATH}
 
 logging:
   level:

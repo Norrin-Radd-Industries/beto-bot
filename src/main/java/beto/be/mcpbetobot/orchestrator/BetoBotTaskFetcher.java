@@ -4,7 +4,6 @@ import beto.be.mcpbetobot.domain.GithubTask;
 import beto.be.mcpbetobot.events.GitHubTaskEvent;
 import beto.be.mcpbetobot.github.CodeBaseVectorService;
 import beto.be.mcpbetobot.github.GithubProjectService;
-import beto.be.mcpbetobot.github.McpCodeFetcherService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
@@ -26,41 +25,28 @@ public class BetoBotTaskFetcher {
     private final GithubProjectService githubProjectService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final CodeBaseVectorService codeBaseVectorService;
-    private final McpCodeFetcherService mcpCodeFetcherService;
 
     public BetoBotTaskFetcher(ApplicationEventPublisher applicationEventPublisher,
                               GithubProjectService githubProjectService,
-                              CodeBaseVectorService codeBaseVectorService,
-                              McpCodeFetcherService mcpCodeFetcherService) {
+                              CodeBaseVectorService codeBaseVectorService) {
         this.applicationEventPublisher = applicationEventPublisher;
         this.githubProjectService = githubProjectService;
         this.codeBaseVectorService = codeBaseVectorService;
-        this.mcpCodeFetcherService = mcpCodeFetcherService;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void loadInitialCodebase() {
-        logger.info("-- vector DB is empty. Starting codebase to vector transformation --");
+        logger.info("-- Initializing codebase to vector sync --");
         List<String> myRepos = githubProjectService.fetchLinkedRepositoryNames();
 
-        for (String repo: myRepos) {
-            List<Document> repoCodeFiles = mcpCodeFetcherService.fetchEntireRepository(repo);
-            codeBaseVectorService.saveCodeDocuments(repoCodeFiles);
-            logger.info("Synced vectorDB with {} files for {}", repoCodeFiles.size(), repo);
-        }
-    }
-
-    @Scheduled(fixedRate = 1800000, initialDelay = 30000)
-    public void syncMergedKnowledge() {
-        logger.info(" --Synchronizing merged code into Vector DB-- ");
-        List<String> myRepos = githubProjectService.fetchLinkedRepositoryNames();
-
-        for (String repo : myRepos) {
-            List<Document> updates = mcpCodeFetcherService.fetchRecentPrActivity(repo);
-            if (!updates.isEmpty()) {
-                codeBaseVectorService.saveCodeDocuments(updates);
-                logger.info("Updated memory with {} new PRs for {}", updates.size(), repo);
+        try {
+            for (String repo : myRepos) {
+                List<Document> repoCodeFiles = githubProjectService.fetchEntireRepository(repo);
+                codeBaseVectorService.saveCodeDocuments(repoCodeFiles);
+                logger.info("Synced vectorDB with {} files for {}", repoCodeFiles.size(), repo);
             }
+        } catch (Exception e) {
+            logger.error("Failure during fetch of repo", e);
         }
     }
 
@@ -68,7 +54,7 @@ public class BetoBotTaskFetcher {
     public void checkForAvailableWork() {
         logger.info(" --Checking for available work-- ");
         // get all available tasks in the project setup
-        List<GithubTask> githubTasks = githubProjectService.fetchAvailableTasks();
+        List<GithubTask> githubTasks = githubProjectService.getAvailableTasks();
         // convert them to githubTasks with types
         if (githubTasks.isEmpty()) {
             logger.info(" --Currently no tasks to be done, will check again in 30 min!-- ");
