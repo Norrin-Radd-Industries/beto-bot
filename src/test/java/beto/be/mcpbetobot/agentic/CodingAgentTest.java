@@ -8,6 +8,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.client.ChatClient;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
@@ -21,7 +23,7 @@ class CodingAgentTest {
 
     @Test
     void buildPrompt() {
-        GithubTask task = new GithubTask("item123", "issue456", 1, "Title", "Body", "OPEN", "Repo", "Owner", "CODER");
+        GithubTask task = new GithubTask("item123", "issue456", 1, "Title", "Body", "OPEN", "Repo", "Owner", "CODER", List.of());
         String prompt = codingAgent.buildPrompt(task);
 
         assertTrue(prompt.contains("senior Java Developer"));

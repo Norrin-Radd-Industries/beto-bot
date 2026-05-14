@@ -1,5 +1,7 @@
 package beto.be.mcpbetobot.domain;
 
+import java.util.List;
+
 public record GithubTask(
         String itemId,
         String issueId,
@@ -9,6 +11,12 @@ public record GithubTask(
         String state,
         String repository,
         String repositoryOwner,
-        String type
+        String type,
+        List<GithubTask> blockedBy
 ) {
+
+    public boolean isRunnable() {
+        return !"CLOSED".equalsIgnoreCase(state) &&
+                blockedBy.stream().allMatch(blocker -> "CLOSED".equalsIgnoreCase(blocker.state()));
+    }
 }

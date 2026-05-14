@@ -51,14 +51,20 @@ public class BetoBotTaskFetcher {
         }
     }
 
-    @Scheduled(fixedRate = 1800000, initialDelay = 60000) // 30 min, delay 1min
+    @Scheduled(fixedRate = 1800000, initialDelay = 6000) // 30 min, delay 1min
     public void checkForAvailableWork() {
         logger.info(">>> Checking for available work");
         // get all available tasks in the project setup
         List<GithubTask> githubTasks = githubProjectService.getAvailableTasks();
-        // convert them to githubTasks with types
-        if (githubTasks.isEmpty()) {
-            logger.info(">>> Currently no tasks to be done, will check again in 30 min!");
+
+        // Filter out tasks that are blocked by OPEN issues
+        List<GithubTask> runnableTasks = githubTasks.stream()
+                .filter(GithubTask::isRunnable)
+                .toList();
+
+        if (runnableTasks.isEmpty()) {
+            logger.info(" -- All tasks are currently blocked or completed -- ");
+            return;
         }
         // send events
         githubTasks.forEach(task -> publishEvent(task, task.type()));

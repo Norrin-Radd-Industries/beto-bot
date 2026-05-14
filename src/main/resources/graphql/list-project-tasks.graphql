@@ -1,7 +1,7 @@
 query($org: String!, $number: Int!) {
     organization(login: $org) {
         projectV2(number: $number) {
-            items(first: 50) {
+            items(first: 100) {
                 nodes {
                     id
                     status: fieldValueByName(name: "Status") {
@@ -11,6 +11,13 @@ query($org: String!, $number: Int!) {
                         ... on Issue {
                             id number title body state
                             repository { name owner { login } }
+                            blockedBy(first: 10) {
+                                nodes {
+                                    number
+                                    state
+                                    repository { name owner { login } }
+                                }
+                            }
                         }
                     }
                 }

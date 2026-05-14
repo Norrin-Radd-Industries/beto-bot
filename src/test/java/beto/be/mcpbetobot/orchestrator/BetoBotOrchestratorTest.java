@@ -10,6 +10,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -27,7 +29,7 @@ class BetoBotOrchestratorTest {
 
     @Test
     void processEvent_Analysis() throws InterruptedException {
-        GithubTask task = new GithubTask("i1", "iss1", 1, "T", "B", "OPEN", "R", "O", "ANALYSIS");
+        GithubTask task = new GithubTask("i1", "iss1", 1, "T", "B", "OPEN", "R", "O", "ANALYSIS", List.of());
         GitHubTaskEvent event = new GitHubTaskEvent(this, task, "ANALYSIS");
 
         orchestrator.processEvent(event);
@@ -42,7 +44,7 @@ class BetoBotOrchestratorTest {
 
     @Test
     void processEvent_Coder() throws InterruptedException {
-        GithubTask task = new GithubTask("i1", "iss1", 1, "T", "B", "OPEN", "R", "O", "CODER");
+        GithubTask task = new GithubTask("i1", "iss1", 1, "T", "B", "OPEN", "R", "O", "CODER", List.of());
         GitHubTaskEvent event = new GitHubTaskEvent(this, task, "CODER");
 
         orchestrator.processEvent(event);

@@ -30,6 +30,7 @@ spring:
         dimensions: 1536
         max-document-batch-size: 10000
         initialize-schema: true
+        remove-existing-vector-store-table: true
 
   datasource:
     url: ${SPRING_DATASOURCE_URL}

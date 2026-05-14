@@ -1,8 +1,9 @@
 package beto.be.mcpbetobot.util;
 
 import beto.be.mcpbetobot.domain.GithubTask;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.document.Document;
 
 import java.util.List;
 
@@ -11,54 +12,73 @@ import static org.junit.jupiter.api.Assertions.*;
 class GithubParserTest {
 
     @Test
-    void shouldParseMcpPrResultToDocuments() {
-        String mockMcpJson = """
-            [
-              {
-                "title": "Fix Timeout",
-                "body": "Changed timeout to 30s",
-                "merged_at": "2026-05-01T10:00:00Z",
-                "html_url": "https://github.com/org/repo/pull/1"
-              }
-            ]
-            """;
+    void shouldParseGraphQLTasksWithDependenciesCorrectly() throws Exception {
+        JsonMapper mapper = new JsonMapper();
 
-        List<Document> docs = GithubParser.parseMergedPRsToDocuments(mockMcpJson, "org/repo");
-
-        assertEquals(1, docs.size());
-        assertEquals("merged_pr", docs.getFirst().getMetadata().get("source"));
-        assertTrue(docs.getFirst().getFormattedContent().contains("Fix Timeout"));
-    }
-
-    @Test
-    void shouldParseMcpTasksCorrectly() {
-        String mockMcpJson = """
-        [
-          {
-            "id": "item_123",
-            "status": "Ready",
-            "content": {
-                "id": "issue_456",
-                "number": 42,
-                "title": "Fix the bug",
-                "body": "This is a bug description",
-                "state": "OPEN",
-                "repository": {
-                    "name": "my-repo",
-                    "owner": {
-                        "login": "my-org"
+        // mocking the exact GraphQL response structure from GitHub Projects V2
+        String mockGraphQLResponse = """
+                {
+                  "data": {
+                    "organization": {
+                      "projectV2": {
+                        "items": {
+                          "nodes": [
+                            {
+                              "id": "item_ready",
+                              "status": { "name": "To analyze" },
+                              "content": {
+                                "id": "issue_1",
+                                "number": 101,
+                                "title": "Unblocked Task",
+                                "body": "No blockers here",
+                                "state": "OPEN",
+                                "repository": { "name": "beto-bot", "owner": { "login": "Norrin-Radd-Industries" } },
+                                "blockedBy": { "nodes": [] }
+                              }
+                            },
+                            {
+                              "id": "item_blocked",
+                              "status": { "name": "To develop" },
+                              "content": {
+                                "id": "issue_2",
+                                "number": 102,
+                                "title": "Blocked Task",
+                                "body": "Depends on issue 101",
+                                "state": "OPEN",
+                                "repository": { "name": "beto-bot", "owner": { "login": "Norrin-Radd-Industries" } },
+                                "blockedBy": {
+                                    "nodes": [
+                                        { "number": 101, "state": "OPEN" }
+                                    ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
                     }
+                  }
                 }
-            }
-          }
-        ]
-        """;
+                """;
 
-        List<GithubTask> tasks = GithubParser.parseTasksFromProject(mockMcpJson);
+        JsonNode responseNode = mapper.readTree(mockGraphQLResponse);
 
-        assertEquals(1, tasks.size());
-        assertNotNull(tasks.getFirst());
-        assertEquals("ANALYSIS", tasks.getFirst().type());
-        assertEquals(42, tasks.getFirst().number());
+        // call the method your GithubProjectService actually uses
+        List<GithubTask> tasks = GithubParser.parseTasksFromGraphQL(responseNode);
+
+        // assertions
+        assertEquals(2, tasks.size());
+
+        // Check Task 1 (Unblocked Analysis Task)
+        GithubTask task1 = tasks.stream().filter(t -> t.number() == 101).findFirst().orElseThrow();
+        assertEquals("ANALYSIS", task1.type());
+        assertTrue(task1.blockedBy().isEmpty(), "Task 101 should not be blocked");
+        assertEquals("Norrin-Radd-Industries/beto-bot", task1.repositoryOwner() + "/" + task1.repository());
+
+        // Check Task 2 (Blocked Coder Task)
+        GithubTask task2 = tasks.stream().filter(t -> t.number() == 102).findFirst().orElseThrow();
+        assertEquals("CODER", task2.type());
+        assertFalse(task2.blockedBy().isEmpty(), "Task 102 should be blocked");
+        assertEquals(101, task2.blockedBy().getFirst().number(), "Task 102 should be blocked by issue 101");
     }
 }
