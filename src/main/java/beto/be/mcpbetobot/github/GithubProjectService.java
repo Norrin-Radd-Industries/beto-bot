@@ -74,8 +74,12 @@ public class GithubProjectService {
 
     @Tool(description = "Move a GitHub project issue to a new status")
     public String moveTask(@ToolParam(description = "The project item ID") String itemId,
-                           @ToolParam(description = "Target status (Ready, In progress, Done)") String statusName) {
-        String optionId = statusOptions.get(statusName);
+                           @ToolParam(description = "Target status") String statusName) {
+        String optionId = statusOptions.entrySet().stream()
+                .filter(e -> e.getKey().equalsIgnoreCase(statusName))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
         if (optionId == null) return "Invalid status: " + statusName;
 
         String mutation = QueryLoader.loadQuery("update-task-status.graphql");
@@ -128,10 +132,10 @@ public class GithubProjectService {
                 .body(String.class);
 
         JsonNode repoNode = mapper.readTree(repoMetaJson);
-        String defaultBranch = repoNode.path("default_branch").asText("main");
+        String defaultBranch = repoNode.path("default_branch").asText();
 
         String treeResponse = restClient.get()
-                .uri("https://api.github.com/repos/" + repoWithOwner + "/git/trees/" + defaultBranch)
+                .uri("https://api.github.com/repos/" + repoWithOwner + "/git/trees/" + defaultBranch + "?recursive=1")
                 .header("Authorization", "Bearer " + authService.getInstallationToken())
                 .header("User-Agent", "Norrin-Radd-Industries-Beto-Bot")
                 .header("Accept", "application/json")
@@ -160,23 +164,23 @@ public class GithubProjectService {
         List<Document> allDocs = new ArrayList<>();
         for (int i = 0; i < paths.size(); i += 20) {
             List<String> batch = paths.subList(i, Math.min(i + 20, paths.size()));
-            String batchQuery = buildBatchQuery(owner, repo, batch);
+            String batchQuery = buildBatchQuery(owner, repo, batch, defaultBranch);
             JsonNode contentResponse = executeQuery(batchQuery, Map.of());
 
             batch.forEach(path -> {
                 String alias = "file_" + Math.abs(path.hashCode());
                 String content = contentResponse.at("/data/repository/" + alias + "/text").asText();
-                allDocs.add(createDocument(content, repoWithOwner, path));
+                allDocs.add(createDocument(content, repoWithOwner, path, defaultBranch));
             });
         }
         return allDocs;
     }
 
-    private String buildBatchQuery(String owner, String repo, List<String> paths) {
+    private String buildBatchQuery(String owner, String repo, List<String> paths, String defaultBranch) {
         StringBuilder sb = new StringBuilder("query { repository(owner: \"" + owner + "\", name: \"" + repo + "\") {");
         for (String path : paths) {
             String alias = "file_" + Math.abs(path.hashCode());
-            sb.append(String.format("%s: object(expression: \"HEAD:%s\") { ... on Blob { text } } ", alias, path));
+            sb.append(String.format("%s: object(expression: \"%s:%s\") { ... on Blob { text } } ", alias, defaultBranch, path));
         }
         sb.append("} }");
         return sb.toString();

@@ -7,6 +7,7 @@ import beto.be.mcpbetobot.domain.GithubTask;
 import beto.be.mcpbetobot.events.GitHubTaskEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -16,11 +17,14 @@ public class BetoBotOrchestrator {
     private final Logger logger = LoggerFactory.getLogger(BetoBotOrchestrator.class);
     private final CodingAgent codingAgent;
     private final AnalystAgent analystAgent;
+    private final VectorStore vectorStore;
 
     public BetoBotOrchestrator(CodingAgent codingAgent,
-                               AnalystAgent analystAgent) {
+                               AnalystAgent analystAgent,
+                               VectorStore vectorStore) {
         this.codingAgent = codingAgent;
         this.analystAgent = analystAgent;
+        this.vectorStore = vectorStore;
     }
 
     @EventListener
@@ -35,12 +39,12 @@ public class BetoBotOrchestrator {
 
     private void runAgent(GithubTask task, Agent agent){
         // start virtual thread to have agents be non-blocking for platform threads
-        logger.info(">>> Assigning {} agent for task: {} <<<", task.type(), task.number());
+        logger.info(">>> Assigning {} agent for task: {}", task.type(), task.number());
         Thread.ofVirtual().start(() -> {
             try {
                 agent.start(task);
             } catch (Exception e) {
-                logger.error("Virtual Thread with agent failed: {}", e.getMessage());
+                logger.error(">>> Virtual Thread with agent failed: {}", e.getMessage());
             }
         });
     }

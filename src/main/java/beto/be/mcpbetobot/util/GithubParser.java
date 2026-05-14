@@ -11,7 +11,7 @@ import java.util.UUID;
 
 public class GithubParser {
 
-    public static Document createDocument(String codeContent, String repoName, String filePath) {
+    public static Document createDocument(String codeContent, String repoName, String filePath, String branch) {
         String uniqueId = repoName + ":" + filePath;
         UUID deterministicId = UUID.nameUUIDFromBytes(uniqueId.getBytes(StandardCharsets.UTF_8));
         return Document.builder()
@@ -20,6 +20,7 @@ public class GithubParser {
                 .metadata("type", "code_file")
                 .metadata("filePath", filePath)
                 .metadata("repository", repoName)
+                .metadata("branch", branch)
                 .build();
     }
 

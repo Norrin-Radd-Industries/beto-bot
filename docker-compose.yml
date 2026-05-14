@@ -1,22 +1,48 @@
 services:
-  github-mcp:
-    image: ghcr.io/github/github-mcp-server:latest
-    container_name: github-mcp
-    ports:
-      - "9090:8082"
+# using the remote github server, if not uncomment this
+#  github-mcp:
+#    image: ghcr.io/github/github-mcp-server:latest
+#    container_name: github-mcp
+#    ports:
+#      - "9090:8082"
+#    environment:
+#      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+#      - GITHUB_TOOLSETS=repos,issues,pull_requests,contents
+#    command: http
+
+
+  pg-vector:
+    image: pgvector/pgvector:pg16
+    container_name: pg-vector
     environment:
-      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
-      - GITHUB_TOOLSETS=repos,issues,pull_requests,contents
-    command: http
+      POSTGRES_USER: cosmicbless
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: beto_bot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
 
   beto-bot:
     build: .
     depends_on:
-      - github-mcp
+#      - github-mcp
+      - pg-vector
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - GITHUB_PROJECT_ID=${GITHUB_PROJECT_ID}
-      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+      - GITHUB_PROJECT_NUMBER=${GITHUB_PROJECT_NUMBER}
       - GITHUB_MCP_SERVER_ADDRESS=${GITHUB_MCP_SERVER_ADDRESS}
       - AGENT_MODEL_ANALYST=${AGENT_MODEL_ANALYST}
       - AGENT_MODEL_CODER=${AGENT_MODEL_CODER}
+      - GITHUB_APP_INSTALL_ID=${GITHUB_APP_INSTALL_ID}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_APP_KEY_PATH=file:./secrets/github-app-key.pem
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+    volumes:
+      - ./secrets/beto-bot-app.2026-05-10.private-key.pem:/secrets/beto-bot-app.2026-05-10.private-key.pem:ro
+
+volumes:
+  pgdata:

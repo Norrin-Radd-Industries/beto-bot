@@ -1,14 +1,16 @@
 package beto.be.mcpbetobot.agentic;
 
 import beto.be.mcpbetobot.domain.GithubTask;
+import beto.be.mcpbetobot.github.RagService;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 
 @Component
 public class AnalystAgent extends Agent{
 
-    public AnalystAgent(ChatClient analystChatClient) {
-        super(analystChatClient);
+    public AnalystAgent(ChatClient analystChatClient,
+                        RagService ragService) {
+        super(analystChatClient, ragService);
     }
 
     @Override
