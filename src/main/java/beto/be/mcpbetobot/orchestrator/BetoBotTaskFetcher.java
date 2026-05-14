@@ -3,10 +3,8 @@ package beto.be.mcpbetobot.orchestrator;
 import beto.be.mcpbetobot.domain.GithubTask;
 import beto.be.mcpbetobot.events.GitHubTaskEvent;
 import beto.be.mcpbetobot.github.GithubProjectService;
-import beto.be.mcpbetobot.github.RagService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.document.Document;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -25,30 +23,20 @@ public class BetoBotTaskFetcher {
     private final Logger logger = LoggerFactory.getLogger(BetoBotTaskFetcher.class);
     private final GithubProjectService githubProjectService;
     private final ApplicationEventPublisher applicationEventPublisher;
-    private final RagService ragService;
+    private final CodebaseSyncService codebaseSyncService;
 
     public BetoBotTaskFetcher(ApplicationEventPublisher applicationEventPublisher,
                               GithubProjectService githubProjectService,
-                              RagService ragService) {
+                              CodebaseSyncService codebaseSyncService) {
         this.applicationEventPublisher = applicationEventPublisher;
         this.githubProjectService = githubProjectService;
-        this.ragService = ragService;
+        this.codebaseSyncService = codebaseSyncService;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void loadInitialCodebase() {
         logger.info(">>> Initializing codebase to vector sync");
-        List<String> myRepos = githubProjectService.fetchLinkedRepositoryNames();
-
-        try {
-            for (String repo : myRepos) {
-                List<Document> repoCodeFiles = githubProjectService.fetchEntireRepository(repo);
-                ragService.saveCodeDocuments(repoCodeFiles);
-                logger.info(">>> Synced vectorDB with {} files for {}", repoCodeFiles.size(), repo);
-            }
-        } catch (Exception e) {
-            logger.error(">>> Failure during fetch of repo", e);
-        }
+        codebaseSyncService.syncAllRepositories();
     }
 
     @Scheduled(fixedRate = 1800000, initialDelay = 6000) // 30 min, delay 1min
