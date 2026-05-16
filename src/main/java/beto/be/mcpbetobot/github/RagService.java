@@ -7,7 +7,9 @@ import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -20,20 +22,27 @@ public class RagService {
     }
 
     public void saveCodeDocuments(List<Document> documents) {
-        if (documents != null && !documents.isEmpty()) {
-            this.vectorStore.add(documents);
-        }
+        List<Document> prefixedDocs = documents.stream()
+                .map(doc -> {
+                    String prefixedContent = "task: retrieval_document: " + doc.getFormattedContent();
+                    return new Document(doc.getId(), prefixedContent, doc.getMetadata());
+                })
+                .toList();
+
+        this.vectorStore.add(prefixedDocs);
     }
 
     public String retrieveContext(String query, String repositoryName) {
         FilterExpressionBuilder b = new FilterExpressionBuilder();
         Filter.Expression filter = b.eq("repository", repositoryName).build();
 
+        String prefixedQuery = "task: retrieval_query: " + query;
+
         List<Document> docs = vectorStore.similaritySearch(
                 SearchRequest.builder()
-                        .query(query)
-                        .topK(5)
-                        .similarityThreshold(0.7)
+                        .query(prefixedQuery)
+                        .topK(10)
+                        .similarityThreshold(0.4)
                         .filterExpression(filter)
                         .build()
         );
@@ -46,5 +55,11 @@ public class RagService {
                         doc.getText()
                 ))
                 .collect(Collectors.joining("\n"));
+    }
+
+    public void removeDocument(String repoName, String filePath) {
+        String uniqueId = repoName + ":" + filePath;
+        UUID deterministicId = UUID.nameUUIDFromBytes(uniqueId.getBytes(StandardCharsets.UTF_8));
+        vectorStore.delete(List.of(deterministicId.toString()));
     }
 }

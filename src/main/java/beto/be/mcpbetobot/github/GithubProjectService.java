@@ -152,7 +152,7 @@ public class GithubProjectService {
         response.path("tree").forEach(node -> {
             String path = node.get("path").asText();
             if (node.get("type").asText().equals("blob") &&
-                    (path.endsWith(".java") || path.endsWith(".md") || path.endsWith(".xml"))) {
+                    (path.endsWith(".java"))) {
                 paths.add(path);
             }
         });

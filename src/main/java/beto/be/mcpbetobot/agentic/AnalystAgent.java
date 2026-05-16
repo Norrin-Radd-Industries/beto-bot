@@ -3,44 +3,62 @@ package beto.be.mcpbetobot.agentic;
 import beto.be.mcpbetobot.domain.GithubTask;
 import beto.be.mcpbetobot.github.RagService;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.stereotype.Component;
+
+import java.util.Set;
 
 @Component
 public class AnalystAgent extends Agent{
 
     public AnalystAgent(ChatClient analystChatClient,
-                        RagService ragService) {
-        super(analystChatClient, ragService);
+                        RagService ragService,
+                        SyncMcpToolCallbackProvider toolCallbackProvider) {
+        super(analystChatClient, ragService, toolCallbackProvider);
     }
 
     @Override
-    String buildPrompt(GithubTask task) {
+    String buildPrompt(GithubTask task, String context) {
         return String.format("""
-            System context:
-            Owner: %s | Repo: %s
-            Always provide owner and repo when calling tools.
+            CRITICAL RULES - NEVER VIOLATE:
+            - Repository owner is ALWAYS: %s
+            - Repository name is ALWAYS: %s
+            - NEVER use any other owner or repo. Not 'demo', not 'Norrin', not anything else.
+            - If unsure, use exactly: owner=%s repo=%s
             
             Task:
             You are a functional analyst. You have access to a knowledge database of the codebase and past PR history.
             
             RELEVANT CODE & HISTORY FROM KNOWLEDGE DATABASE:
-            {question_answer_context}
+            %s
             
             Issue: %d - %s
             Description: %s
     
             Instructions:
-            1. Review the 'RELEVANT CODE' provided. This context contains code found by semantic search.
-            2. If you need to see the full content of a specific file mentioned in the context that wasn't fully provided, use 'get_file_contents'.
-            3. When providing the analysis, be sure to add the path of the files where work is needed or suggest the path when new files need to be created.
-            4. Write a concise, in-depth analysis into the issue body using 'update_issue' with issue_number=%d, appending your analysis below the original description.
-            5. Call 'moveTask' with itemId='%s' and statusName='Analyzed' to move the issue.
+            1. Review the 'RELEVANT CODE' provided above.
+            2. Write your COMPLETE analysis in full before calling any tools.
+            3. Your analysis must be thorough - do NOT use placeholders like "to be populated".
+            4. Only AFTER your analysis is complete, call 'issue_write' with the full text.
+            5. Then call 'moveTask' with itemId='%s' and statusName='Analyzed'.
+            
+            Do NOT call any tools until you have written the full analysis in your response.
             """,task.repositoryOwner(),
                 task.repository(),
+                task.repositoryOwner(),
+                task.repository(),
+                context,
                 task.number(),
                 task.title(),
                 task.body(),
-                task.number(),
                 task.itemId());
+    }
+
+    @Override
+    Set<String> getAllowedTools() {
+        return Set.of(
+                "get_file_contents",
+                "issue_write",
+                "moveTask");
     }
 }

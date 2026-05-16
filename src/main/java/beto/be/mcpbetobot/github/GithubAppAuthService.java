@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.util.Date;
 
-@ConfigurationProperties(prefix = "github-app")
+@ConfigurationProperties(prefix = "github")
 public record GithubAppAuthService(String clientId, Resource key, String installationId) {
 
     public String getInstallationToken() {

@@ -44,4 +44,8 @@ public class CodebaseSyncService {
             logger.error(">>> Failure during sync of repo: {}", repoWithOwner, e);
         }
     }
+
+    public void syncRepositoryRemoval(String repoName, String filePath) {
+        ragService.removeDocument(repoName, filePath);
+    }
 }

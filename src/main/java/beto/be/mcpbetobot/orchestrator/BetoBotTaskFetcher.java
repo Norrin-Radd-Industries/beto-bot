@@ -39,7 +39,7 @@ public class BetoBotTaskFetcher {
         codebaseSyncService.syncAllRepositories();
     }
 
-    @Scheduled(fixedRate = 1800000, initialDelay = 6000) // 30 min, delay 1min
+    @Scheduled(fixedRate = 1800000, initialDelay = 30000) // 30 min, delay 1min
     public void checkForAvailableWork() {
         logger.info(">>> Checking for available work");
         // get all available tasks in the project setup

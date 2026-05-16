@@ -2,7 +2,7 @@ package beto.be.mcpbetobot.webhook;
 
 import beto.be.mcpbetobot.orchestrator.CodebaseSyncService;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -16,14 +16,13 @@ public class GithubWebhookController {
     private final Logger logger = LoggerFactory.getLogger(GithubWebhookController.class);
     private final CodebaseSyncService codebaseSyncService;
     private final WebhookSignatureValidator signatureValidator;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     public GithubWebhookController(CodebaseSyncService codebaseSyncService,
-                                   WebhookSignatureValidator signatureValidator,
-                                   ObjectMapper objectMapper) {
+                                   WebhookSignatureValidator signatureValidator) {
         this.codebaseSyncService = codebaseSyncService;
         this.signatureValidator = signatureValidator;
-        this.objectMapper = objectMapper;
+        this.objectMapper = new JsonMapper();
     }
 
     @PostMapping
@@ -44,7 +43,17 @@ public class GithubWebhookController {
 
                 if ("refs/heads/master".equals(ref)) {
                     logger.info("Push event received for master branch on {}. Triggering sync.", repoName);
-                    codebaseSyncService.syncRepository(repoName);
+                    JsonNode commits = root.path("commits");
+                    commits.forEach(commit -> {
+                        commit.path("removed").forEach(file -> {
+                            String filePath = file.asText();
+                            codebaseSyncService.syncRepositoryRemoval(repoName, filePath);
+                            logger.info("File removed: {}", filePath);
+                        });
+                    });
+                    commits.path("modified").forEach(file -> {
+                        codebaseSyncService.syncRepository(repoName);
+                    });
                 } else {
                     logger.info("Push event received for branch {}. Ignoring.", ref);
                 }

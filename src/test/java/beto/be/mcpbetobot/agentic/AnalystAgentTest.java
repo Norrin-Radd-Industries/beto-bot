@@ -19,7 +19,7 @@ class AnalystAgentTest {
     @Test
     void buildPrompt() {
         GithubTask task = new GithubTask("item123", "issue456", 1, "do this", "Body", "OPEN", "Repo", "Jos", "ANALYSIS", List.of());
-        String prompt = analystAgent.buildPrompt(task);
+        String prompt = analystAgent.buildPrompt(task, "context");
 
         assertTrue(prompt.contains("functional analyst"));
         assertTrue(prompt.contains("item123"));

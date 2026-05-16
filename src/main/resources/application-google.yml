@@ -9,14 +9,16 @@ spring:
       enabled: true
 
   ai:
-    ollama:
-      base-url: http://192.168.220.192:11434
-      chat:
-        num-ctx: 16384
-      embedding:
-        options:
-          model: embeddinggemma
-          keep-alive: 5m
+    google:
+      genai:
+        api-key: ${GOOGLE_API_KEY}
+        embedding:
+          text:
+            options:
+              model: models/gemini-embedding-2
+              dimensions: 1536
+          api-key: ${GOOGLE_API_KEY}
+
     mcp:
       client:
         streamable-http:
@@ -28,7 +30,7 @@ spring:
       pgvector:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
-        dimensions: 768
+        dimensions: 1536
         max-document-batch-size: 10000
         initialize-schema: true
         remove-existing-vector-store-table: true
@@ -48,6 +50,3 @@ github:
 logging:
   level:
     org.springframework.ai.chat.client.advisor: DEBUG
-    org.springframework.ai: DEBUG
-    org.springframework.ai.mcp: TRACE
-    io.modelcontextprotocol: TRACE
