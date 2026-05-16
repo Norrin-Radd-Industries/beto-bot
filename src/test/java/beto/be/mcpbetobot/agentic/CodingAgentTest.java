@@ -31,4 +31,26 @@ class CodingAgentTest {
         assertTrue(prompt.contains("Title"));
         assertTrue(prompt.contains("Repo"));
     }
+
+    @Test
+    void buildPrompt_WithSpecialCharactersInTitle() {
+        GithubTask task = new GithubTask("item123", "issue456", 1, "Title & more", "Body with special chars: @#$%", "OPEN", "Repo", "Owner", "CODER", List.of());
+        String prompt = codingAgent.buildPrompt(task);
+
+        assertTrue(prompt.contains("senior Java Developer"));
+        assertTrue(prompt.contains("item123"));
+        assertTrue(prompt.contains("Title & more"));
+        assertTrue(prompt.contains("Repo"));
+    }
+
+    @Test
+    void buildPrompt_WithEmptyDescription() {
+        GithubTask task = new GithubTask("item123", "issue456", 1, "Title", "", "OPEN", "Repo", "Owner", "CODER", List.of());
+        String prompt = codingAgent.buildPrompt(task);
+
+        assertTrue(prompt.contains("senior Java Developer"));
+        assertTrue(prompt.contains("item123"));
+        assertTrue(prompt.contains("Title"));
+        assertTrue(prompt.contains("Repo"));
+    }
 }
