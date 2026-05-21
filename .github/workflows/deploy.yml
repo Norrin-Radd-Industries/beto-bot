@@ -30,7 +30,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push
@@ -39,5 +39,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/silversurferstate/beto-bot:latest
-            ghcr.io/silversurferstate/beto-bot:${{ github.sha }}
+            ghcr.io/norrin-radd-industries/beto-bot:latest
+            ghcr.io/norrin-radd-industries/beto-bot:${{ github.sha }}
