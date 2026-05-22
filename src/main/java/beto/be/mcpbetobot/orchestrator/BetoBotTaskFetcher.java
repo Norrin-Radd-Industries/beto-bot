@@ -55,7 +55,7 @@ public class BetoBotTaskFetcher {
             return;
         }
         // send events
-        githubTasks.forEach(task -> publishEvent(task, task.type()));
+        runnableTasks.forEach(task -> publishEvent(task, task.type()));
     }
 
     private void publishEvent(GithubTask task, String type){
