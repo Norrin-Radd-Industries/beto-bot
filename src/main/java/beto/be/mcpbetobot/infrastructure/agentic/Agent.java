@@ -45,7 +45,7 @@ public abstract class Agent {
                 .system(promptSpec -> promptSpec
                         .text(buildPrompt(task, context)))
                 .user("execute the task provided")
-                .advisors(new SimpleLoggerAdvisor())
+                .advisors(new SimpleLoggerAdvisor(), new CavemanRAGAdvisor())
                 .toolCallbacks(filteredTools)
                 .call()
                 .content();

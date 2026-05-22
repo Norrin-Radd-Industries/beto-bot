@@ -44,7 +44,7 @@ public class CodingAgent extends Agent implements AgentGateway {
 
         Instructions:
         1. Review the 'HISTORICAL CONTEXT' above to understand existing patterns and conventions.
-        2. Write your COMPLETE implementation plan before calling any tools.
+        2. Write your COMPLETE implementation plan in ultra-compressed caveman style (terse, no filler, fragments OK) before calling any tools.
         3. Only AFTER your plan is written, execute it in this order:
            a. Create branch 'feature/issue-%d' using 'create_branch'.
            b. Use 'get_file_contents' sparingly - only for files strictly missing from the context above.
