@@ -39,6 +39,30 @@ The workflow relies on tracking state columns inside your GitHub Project:
 1. **The Analyst Persona:** A structural analyzer. It searches matching repository files, assesses dependency code trees, maps the code problem, and writes a concrete technical implementation proposal directly back into the GitHub issue before updating its status.
 2. **The Coder Persona:** A senior Java engineering persona. It receives the architectural implementation plan, claims a new feature branch, updates code lines using safe file modifications via MCP, opens the Pull Request, links the original issue, and moves the task to completion.
 
+### 📂 Clean Architecture Package Structure
+To ensure separation of concerns and framework independence, the codebase is structured into four main layers:
+* **Domain Layer (`domain`)**: Pure Java logic, free of framework dependencies (Spring, Jackson, etc.).
+  * `domain.entities`: Core domain models (e.g., [GithubTask](file:///c:/Projects/mcp-betobot/src/main/java/beto/be/mcpbetobot/domain/entities/GithubTask.java)).
+  * `domain.usecases`: Application business logic (e.g., [FetchTasksUseCase](file:///c:/Projects/mcp-betobot/src/main/java/beto/be/mcpbetobot/domain/usecases/FetchTasksUseCase.java)).
+  * `domain.usecases.gateways`: Interfaces for external systems (e.g., `AgentGateway`).
+* **Data Layer (`data`)**: Adapters and services that implement domain gateways.
+  * `data.github`: Interacts with the GitHub API.
+  * `data.rag`: Handles vector search and retrieval.
+  * `data.mappers`: Utility parsers (e.g., [GithubParser](file:///c:/Projects/mcp-betobot/src/main/java/beto/be/mcpbetobot/data/mappers/GithubParser.java)).
+* **Presentation Layer (`presentation`)**: Entry points for receiving API calls.
+  * `presentation.controllers`: Webhook controllers (e.g., [GithubWebhookController](file:///c:/Projects/mcp-betobot/src/main/java/beto/be/mcpbetobot/presentation/controllers/GithubWebhookController.java)).
+* **Infrastructure Layer (`infrastructure`)**: System configuration, scheduling, and orchestrators.
+  * `infrastructure.agentic`: LLM agent personas.
+  * `infrastructure.config`: Bean initialization and settings.
+  * `infrastructure.orchestrator`: Listens to events and schedules virtual threads for execution.
+
+### ⚙️ Task Eligibility Rules
+To prevent unnecessary runs and duplicated issues:
+1. **Processing Status**: Issues are processed only if their Project status column is explicitly `To analyze` or `To develop`.
+2. **Issue State**: The target issue must be `OPEN`.
+3. **Task Blockers**: Issues marked as blocked (with references in `blockedBy` that remain in `OPEN` state) are automatically skipped.
+4. **Issue Updates**: Agents must invoke the `issue_write` tool with `method='update'` and target the correct `issue_number` to update the issue body directly, preventing duplicate issue creation in the `Backlog` column.
+
 ---
 
 ## 🚀 2. Quickstart Prerequisites
