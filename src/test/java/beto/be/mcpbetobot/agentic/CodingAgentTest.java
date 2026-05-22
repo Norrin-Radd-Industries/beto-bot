@@ -26,7 +26,7 @@ class CodingAgentTest {
         GithubTask task = new GithubTask("item123", "issue456", 1, "Title", "Body", "OPEN", "Repo", "Owner", "CODER", List.of());
         String prompt = codingAgent.buildPrompt(task, "context");
 
-        assertTrue(prompt.contains("senior Java Developer"));
+        assertTrue(prompt.contains("senior Java developer"));
         assertTrue(prompt.contains("item123"));
         assertTrue(prompt.contains("Title"));
         assertTrue(prompt.contains("Repo"));
