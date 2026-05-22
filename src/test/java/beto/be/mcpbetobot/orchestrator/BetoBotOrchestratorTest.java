@@ -34,9 +34,7 @@ class BetoBotOrchestratorTest {
 
         orchestrator.processEvent(event);
 
-        // Since it runs in a virtual thread, we might need a small sleep or a better way to verify
-        // For unit testing, we could potentially mock Thread.ofVirtual() if we were using a factory,
-        // but here we just wait a bit.
+        // Since it runs in a virtual thread, we need a small sleep or a better way to verify
         Thread.sleep(100);
         verify(analystAgent, times(1)).start(task);
         verify(codingAgent, never()).start(any());

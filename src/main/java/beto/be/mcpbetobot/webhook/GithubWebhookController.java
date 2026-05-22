@@ -40,7 +40,6 @@ public class GithubWebhookController {
                 JsonNode root = objectMapper.readTree(payload);
                 String ref = root.path("ref").asText();
                 String repoName = root.path("repository").path("full_name").asText();
-
                 if ("refs/heads/master".equals(ref)) {
                     logger.info("Push event received for master branch on {}. Triggering sync.", repoName);
                     JsonNode commits = root.path("commits");
@@ -50,9 +49,9 @@ public class GithubWebhookController {
                             codebaseSyncService.syncRepositoryRemoval(repoName, filePath);
                             logger.info("File removed: {}", filePath);
                         });
-                    });
-                    commits.path("modified").forEach(file -> {
-                        codebaseSyncService.syncRepository(repoName);
+                        commit.path("modified").forEach(file -> {
+                            codebaseSyncService.syncRepository(repoName);
+                        });
                     });
                 } else {
                     logger.info("Push event received for branch {}. Ignoring.", ref);

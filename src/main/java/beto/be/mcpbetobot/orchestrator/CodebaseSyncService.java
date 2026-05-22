@@ -23,9 +23,8 @@ public class CodebaseSyncService {
 
     public void syncAllRepositories() {
         logger.info(">>> Starting codebase to vector sync for all linked repositories");
-        List<String> myRepos = githubProjectService.fetchLinkedRepositoryNames();
-
         try {
+            List<String> myRepos = githubProjectService.fetchLinkedRepositoryNames();
             for (String repo : myRepos) {
                 syncRepository(repo);
             }
