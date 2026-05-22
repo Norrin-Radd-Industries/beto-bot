@@ -37,10 +37,9 @@ public class RagService implements VectorStoreGateway {
     private Document mapToDocument(SourceFile file) {
         String uniqueId = file.repoName() + ":" + file.filePath();
         UUID deterministicId = UUID.nameUUIDFromBytes(uniqueId.getBytes(StandardCharsets.UTF_8));
-        String cleanedContent = preprocessCode(file.content());
         return Document.builder()
                 .id(deterministicId.toString())
-                .text("task: retrieval_document: " + cleanedContent)
+                .text("task: retrieval_document: " + file.content())
                 .metadata("type", "code_file")
                 .metadata("filePath", file.filePath())
                 .metadata("repository", file.repoName())

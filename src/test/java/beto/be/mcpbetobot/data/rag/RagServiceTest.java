@@ -10,14 +10,15 @@ class RagServiceTest {
     void shouldStripSingleLineComments() {
         String code = """
                 // This is a comment
-                int x = 10; // Inline comment
-                // Another comment
-                int y = 20;
+                public class Test {
+                    int x = 10; // inline comment
+                }
                 """;
 
         String expected = """
-                int x = 10;
-                int y = 20;""";
+                public class Test {
+                    int x = 10;
+                }""";
 
         assertEquals(expected, RagService.preprocessCode(code));
     }
