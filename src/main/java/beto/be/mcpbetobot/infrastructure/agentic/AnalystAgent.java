@@ -45,7 +45,7 @@ public class AnalystAgent extends Agent implements AgentGateway {
             1. Review the 'RELEVANT CODE' provided above.
             2. Write your COMPLETE analysis in full before calling any tools.
             3. Your analysis must be thorough - do NOT use placeholders like "to be populated".
-            4. Only AFTER your analysis is complete, call 'issue_write' with the full text.
+            4. Only AFTER your analysis is complete, call 'issue_write' to update the current issue (use parameters: method='update', issue_number=%d, and set 'body' to your complete analysis).
             5. Then call 'moveTask' with itemId='%s' and statusName='Analyzed'.
             
             Do NOT call any tools until you have written the full analysis in your response.
@@ -57,6 +57,7 @@ public class AnalystAgent extends Agent implements AgentGateway {
                 task.number(),
                 task.title(),
                 task.body(),
+                task.number(),
                 task.itemId());
     }
 

@@ -37,6 +37,6 @@ public class FetchTasksUseCase {
             return;
         }
 
-        githubTasks.forEach(task -> taskPublisher.accept(task, task.type()));
+        runnableTasks.forEach(task -> taskPublisher.accept(task, task.type()));
     }
 }

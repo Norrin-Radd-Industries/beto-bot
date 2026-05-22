@@ -50,7 +50,7 @@ public class CodingAgent extends Agent implements AgentGateway {
            b. Use 'get_file_contents' sparingly - only for files strictly missing from the context above.
            c. Implement all changes and push them using 'push_files'.
            d. Create a PR using 'create_pull_request'.
-           e. Link the issue %s to the PR using 'issue_write'.
+           e. Link the issue by calling 'issue_write' with method='update', issue_number=%d, and set 'body' to link the issue to the PR.
            f. Call 'moveTask' with itemId='%s' and statusName='Developed' as your final action.
 
         Do NOT call any tools until you have written your full implementation plan.
