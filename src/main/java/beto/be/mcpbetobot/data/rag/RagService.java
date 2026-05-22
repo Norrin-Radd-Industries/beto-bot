@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,14 +37,41 @@ public class RagService implements VectorStoreGateway {
     private Document mapToDocument(SourceFile file) {
         String uniqueId = file.repoName() + ":" + file.filePath();
         UUID deterministicId = UUID.nameUUIDFromBytes(uniqueId.getBytes(StandardCharsets.UTF_8));
+        String cleanedContent = preprocessCode(file.content());
         return Document.builder()
                 .id(deterministicId.toString())
-                .text("task: retrieval_document: " + file.content())
+                .text("task: retrieval_document: " + cleanedContent)
                 .metadata("type", "code_file")
                 .metadata("filePath", file.filePath())
                 .metadata("repository", file.repoName())
                 .metadata("branch", file.branch())
                 .build();
+    }
+
+    public static String preprocessCode(String content) {
+        if (content == null) {
+            return "";
+        }
+        // Match string literals, char literals, block comments, or line comments
+        Pattern pattern = Pattern.compile("(\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*')|/\\*(?s:.*?)\\*/|//.*");
+        Matcher matcher = pattern.matcher(content);
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            String literal = matcher.group(1);
+            if (literal != null) {
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(literal));
+            } else {
+                matcher.appendReplacement(sb, "");
+            }
+        }
+        matcher.appendTail(sb);
+
+        // Collapse multiple blank lines and strip trailing whitespace on each line
+        return sb.toString()
+                .replaceAll("(?m)[ \\t]+$", "")
+                .replaceAll("(?m)^[ \\t]*\\r?\\n", "")
+                .replaceAll("\\n+", "\n")
+                .trim();
     }
 
     @Override
