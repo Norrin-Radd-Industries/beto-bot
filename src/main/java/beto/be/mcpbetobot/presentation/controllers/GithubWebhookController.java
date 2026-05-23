@@ -1,6 +1,8 @@
 package beto.be.mcpbetobot.presentation.controllers;
 
+import beto.be.mcpbetobot.domain.entities.GithubTask;
 import beto.be.mcpbetobot.domain.usecases.SyncCodebaseUseCase;
+import beto.be.mcpbetobot.infrastructure.agentic.AnalystAgent;
 import beto.be.mcpbetobot.infrastructure.orchestrator.WebhookSignatureValidator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -16,12 +18,15 @@ public class GithubWebhookController {
 
     private final Logger logger = LoggerFactory.getLogger(GithubWebhookController.class);
     private final SyncCodebaseUseCase syncCodebaseUseCase;
+    private final AnalystAgent analystAgent;
     private final WebhookSignatureValidator signatureValidator;
     private final JsonMapper objectMapper;
 
     public GithubWebhookController(SyncCodebaseUseCase syncCodebaseUseCase,
+                                   AnalystAgent analystAgent,
                                    WebhookSignatureValidator signatureValidator) {
         this.syncCodebaseUseCase = syncCodebaseUseCase;
+        this.analystAgent = analystAgent;
         this.signatureValidator = signatureValidator;
         this.objectMapper = new JsonMapper();
     }
@@ -61,6 +66,56 @@ public class GithubWebhookController {
             } catch (Exception e) {
                 logger.error("Error parsing webhook payload", e);
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error parsing payload");
+            }
+        } else if ("project_v2".equalsIgnoreCase(eventType)) {
+            try {
+                JsonNode root = objectMapper.readTree(payload);
+                String action = root.path("action").asText();
+                if ("edited".equals(action)) {
+                    JsonNode projectItem = root.path("project_item");
+                    String status = projectItem.path("status").asText();
+                    
+                    // Check if the status is "To analyze" or "To develop"
+                    if ("To analyze".equalsIgnoreCase(status) || "To develop".equalsIgnoreCase(status)) {
+                        logger.info("Project item status changed to {}", status);
+                        
+                        // Extract task information from the project item
+                        String itemId = projectItem.path("id").asText();
+                        JsonNode content = projectItem.path("content");
+                        
+                        if (!content.isMissingNode()) {
+                            int issueNumber = content.path("number").asInt();
+                            String title = content.path("title").asText();
+                            String body = content.path("body").asText();
+                            String state = content.path("state").asText();
+                            
+                            // Get repository info
+                            JsonNode repository = content.path("repository");
+                            String repoName = repository.path("name").asText();
+                            String owner = repository.path("owner").path("login").asText();
+                            
+                            // Create a GithubTask object and trigger analysis
+                            GithubTask task = new GithubTask(
+                                itemId,
+                                content.path("id").asText(),
+                                issueNumber,
+                                title,
+                                body,
+                                state,
+                                repoName,
+                                owner,
+                                "ANALYSIS", // Set type to ANALYSIS for this case
+                                java.util.List.of()
+                            );
+                            
+                            logger.info("Triggering analysis for issue {}", issueNumber);
+                            analystAgent.execute(task);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error processing project_v2 webhook payload", e);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error processing payload");
             }
         } else {
             logger.info("Received GitHub event: {}. No action taken.", eventType);
